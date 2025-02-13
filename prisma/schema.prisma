@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      String   @default("customer") // customer, repairman, shop_owner
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Shop      Shop?
+  Repairman Repairman?
+  Bookings  Booking[]
+  Orders    Order[]
+  Reviews   Review[]
+}
+
+model Shop {
+  id           Int      @id @default(autoincrement())
+  ownerId      String @unique
+  name         String
+  location     String   // Store as GeoJSON or use PostGIS
+  hasRepairman Boolean  @default(true)
+  photos       String[] // URLs from Supabase Storage
+  services     String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  owner    User     @relation(fields: [ownerId], references: [id])
+  Bookings Booking[]
+  Reviews  Review[]
+}
+
+model Repairman {
+  id              Int      @id @default(autoincrement())
+  userId          String @unique
+  skills          String[]
+  isAvailable     Boolean  @default(true)
+  currentLocation String   // Store as GeoJSON or use PostGIS
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id])
+  Orders Order[]
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  shopId    Int
+  datetime  DateTime
+  issue     String
+  status    String   @default("pending") // pending, confirmed, completed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  shop Shop @relation(fields: [shopId], references: [id])
+}
+
+model Order {
+  id           Int      @id @default(autoincrement())
+  userId       String
+  repairmanId  Int
+  location     String   // Store as GeoJSON or use PostGIS
+  status       String   @default("requested") // requested, accepted, en_route, completed
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id])
+  repairman Repairman @relation(fields: [repairmanId], references: [id])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  shopId    Int
+  userId    String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  shop Shop @relation(fields: [shopId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+} 

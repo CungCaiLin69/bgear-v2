@@ -1,10 +1,10 @@
 {
-  "expo": {
+  "expo": { 
     "name": "bgear-v2",
     "slug": "bgear-v2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/splash-icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
