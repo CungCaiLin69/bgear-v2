@@ -1,27 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
+import { View, Text, Button } from 'react-native';
+import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../utils/AuthProvider';
 
-export default function HomeScreen() {
+export default function HomePage() {
+  const { userToken, logout } = useAuth();
   const router = useRouter();
-  const { logout } = useAuth();
 
-  async function handleLogout() {
-    await logout();
-    // userToken is now null, so (home)/_layout.tsx will redirect to (auth)/starting
-    router.replace('/');
+  if (!userToken) {
+    router.replace('/(auth)/welcome'); // Redirect to login if not logged in
+    return null;
   }
 
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/welcome'); // Redirect to login after logout
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to BGear Home!</Text>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>Welcome to the Homepage!</Text>
       <Button title="Logout" onPress={handleLogout} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, marginBottom: 20 },
-});

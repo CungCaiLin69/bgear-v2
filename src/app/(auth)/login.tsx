@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet, View, Text } from 'react-native';
 import { Button, Input, Icon } from '@rneui/themed';
 import { Link, useRouter } from 'expo-router';
-import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
+
+const API_URL = 'http://10.0.2.2:3000/api/login'; // For Android emulator
+// OR
+// const API_URL = 'http://192.168.1.5:8081/api/login'; // For physical device
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,34 +14,46 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
-  const { login } = useAuth();
+  const { login } = useAuth(); // Use your AuthProvider's login function
 
   // Helper to validate email format
   const isValidEmail = (email: string) => /\S+@\S+\.\S+/.test(email);
 
   async function signInWithEmailHandler() {
+    // Validate input fields
     if (!email || !password) {
       Alert.alert('Validation Error', 'Please fill in both email and password.');
       return;
     }
+
     if (!isValidEmail(email)) {
       Alert.alert('Validation Error', 'Please enter a valid email address.');
       return;
     }
 
     setLoading(true);
+
     try {
-      // Use Supabase auth to sign in with email and password
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.session) {
-        Alert.alert('Login Failed', error?.message || 'No session returned');
-      } else {
-        // Save the token using AuthContext and redirect to home screen
-        await login(data.session.access_token);
-        router.replace('/(home)/home');
+      // Send login request to the backend
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      // Handle backend errors
+      if (!response.ok) {
+        Alert.alert('Login Failed', data.error || 'Invalid credentials');
+        return;
       }
-    } catch (err) {
-      console.error('Error during login:', err);
+
+      // Save the JWT token and redirect to the homepage
+      await login(data.token); // Use your AuthProvider's login function
+      router.replace('/(home)/home');
+    } catch (error) {
+      console.error('Error during login:', error);
       Alert.alert('Login Error', 'Network error, please try again.');
     } finally {
       setLoading(false);
@@ -79,7 +94,12 @@ export default function LoginScreen() {
         />
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button title="Sign in" disabled={loading} onPress={signInWithEmailHandler} loading={loading} />
+        <Button
+          title="Sign in"
+          disabled={loading}
+          onPress={signInWithEmailHandler}
+          loading={loading}
+        />
       </View>
 
       <Text style={styles.footerText}>

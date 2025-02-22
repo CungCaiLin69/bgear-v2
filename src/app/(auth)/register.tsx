@@ -15,27 +15,46 @@ export default function RegisterScreen() {
   const router = useRouter();
 
   async function handleRegister() {
+    // Validate input fields
     if (!name || !email || !password) {
       Alert.alert('Validation Error', 'Please fill in all fields.');
       return;
     }
-    
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Validation Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      Alert.alert('Validation Error', 'Password must be at least 6 characters long.');
+      return;
+    }
+
     setLoading(true);
+
     try {
+      // Send registration request to the backend
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });
+
       const data = await response.json();
 
+      // Handle backend errors
       if (!response.ok) {
-        Alert.alert('Registration Failed', data.error || 'An error occurred');
-      } else {
-        Alert.alert('Registration Successful', 'You can now login.');
-        // Redirect to the login screen after successful registration
-        router.replace('/(auth)/login');
+        Alert.alert('Registration Failed', data.error || 'An error occurred during registration.');
+        return;
       }
+
+      // Registration successful
+      Alert.alert('Registration Successful', 'You can now login.');
+      router.replace('/(auth)/login'); // Redirect to the login screen
     } catch (error) {
       console.error('Error during registration:', error);
       Alert.alert('Registration Error', 'Network error, please try again.');
@@ -78,7 +97,12 @@ export default function RegisterScreen() {
         />
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button title="Register" disabled={loading} onPress={handleRegister} loading={loading} />
+        <Button
+          title="Register"
+          disabled={loading}
+          onPress={handleRegister}
+          loading={loading}
+        />
       </View>
 
       <Text style={styles.footerText}>

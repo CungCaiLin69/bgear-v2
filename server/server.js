@@ -34,7 +34,6 @@ app.post('/api/register', async (req, res) => {
         name,
         role: 'customer',
         // If you have a verification flag in your schema, set it as needed:
-        verified: false
       },
     });
 
@@ -72,7 +71,6 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' }
     );
 
     res.json({ message: 'Login successful', token, user });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AuthContextType = {
@@ -10,10 +10,11 @@ export type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.Element => {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Check if the user is logged in on app startup
   useEffect(() => {
     const checkToken = async () => {
       try {
@@ -31,11 +32,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
     checkToken();
   }, []);
 
+  // Login function
   const login = async (token: string) => {
     setUserToken(token);
     await AsyncStorage.setItem('userToken', token);
   };
 
+  // Logout function
   const logout = async () => {
     setUserToken(null);
     await AsyncStorage.removeItem('userToken');
