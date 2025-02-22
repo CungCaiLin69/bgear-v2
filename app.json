@@ -1,5 +1,5 @@
 {
-  "expo": { 
+  "expo": {
     "name": "bgear-v2",
     "slug": "bgear-v2",
     "version": "1.0.0",
@@ -20,7 +20,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.bgearv2"
     },
     "web": {
       "bundler": "metro",
@@ -28,7 +29,8 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

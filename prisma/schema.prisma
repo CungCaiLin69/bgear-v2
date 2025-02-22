@@ -18,6 +18,9 @@ datasource db {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  password  String?  // Nullable for OAuth users
+  name      String
+  provider  String   @default("local") // "local" for email/password, "google" for OAuth
   role      String   @default("customer") // customer, repairman, shop_owner
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
