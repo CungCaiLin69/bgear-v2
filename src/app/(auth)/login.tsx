@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Text } from 'react-native';
+import { Alert, StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Button, Input, Icon } from '@rneui/themed';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
@@ -49,8 +49,8 @@ export default function LoginScreen() {
         return;
       }
 
-      // Save the JWT token and redirect to the homepage
-      await login(data.token); // Use your AuthProvider's login function
+      // Save the JWT token and user data, then redirect to the homepage
+      await login(data.token, { username: data.user.name }); // Pass the name from the backend
       router.replace('/(home)/home');
     } catch (error) {
       console.error('Error during login:', error);
@@ -64,10 +64,9 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Login to BGear</Text>
 
-      <View style={[styles.verticallySpaced, styles.mt20]}>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
         <Input
           label="Email"
-          leftIcon={{ type: 'font-awesome', name: 'envelope' }}
           onChangeText={setEmail}
           value={email}
           placeholder="email@address.com"
@@ -75,10 +74,9 @@ export default function LoginScreen() {
           keyboardType="email-address"
         />
       </View>
-      <View style={styles.verticallySpaced}>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
         <Input
           label="Password"
-          leftIcon={{ type: 'font-awesome', name: 'lock' }}
           onChangeText={setPassword}
           value={password}
           placeholder="Password"
@@ -93,14 +91,18 @@ export default function LoginScreen() {
           }
         />
       </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button
-          title="Sign in"
-          disabled={loading}
-          onPress={signInWithEmailHandler}
-          loading={loading}
-        />
-      </View>
+
+      <TouchableOpacity
+        style={[styles.loginBtn, styles.mt30]}
+        onPress={signInWithEmailHandler}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.regisTxt}>Login</Text>
+        )}
+      </TouchableOpacity>
 
       <Text style={styles.footerText}>
         Don't have an account yet?{' '}
@@ -113,10 +115,22 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  loginBtn: {
+    borderRadius: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    backgroundColor: '#00897B',
+    borderColor: '#00897B',
+  },
+  regisTxt: { color: 'white', fontSize: 16, fontWeight: '600' },
   container: { flex: 1, justifyContent: 'center', padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   verticallySpaced: { paddingVertical: 4, alignSelf: 'stretch' },
-  mt20: { marginTop: 20 },
+  mt10: { marginTop: 10 },
+  mt30: { marginTop: 30 },
   footerText: { textAlign: 'center', marginTop: 20 },
   link: { color: '#1E90FF', fontWeight: 'bold' },
 });

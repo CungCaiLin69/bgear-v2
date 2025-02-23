@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View, Text } from 'react-native';
+import { Alert, StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Button, Input } from '@rneui/themed';
 import { Link, useRouter } from 'expo-router';
 
@@ -67,7 +67,7 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Register for BGear</Text>
 
-      <View style={[styles.verticallySpaced, styles.mt20]}>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
         <Input
           label="Name"
           value={name}
@@ -76,7 +76,7 @@ export default function RegisterScreen() {
           autoCapitalize="none"
         />
       </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
         <Input
           label="Email"
           value={email}
@@ -86,7 +86,7 @@ export default function RegisterScreen() {
           keyboardType="email-address"
         />
       </View>
-      <View style={styles.verticallySpaced}>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
         <Input
           label="Password"
           value={password}
@@ -96,14 +96,19 @@ export default function RegisterScreen() {
           secureTextEntry
         />
       </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button
-          title="Register"
-          disabled={loading}
-          onPress={handleRegister}
-          loading={loading}
-        />
-      </View>
+        
+      <TouchableOpacity
+        style={[styles.loginBtn, styles.mt30]}
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.regisTxt}>Register</Text>
+            )}
+        </TouchableOpacity>
+        
 
       <Text style={styles.footerText}>
         Already have an account?{' '}
@@ -116,10 +121,20 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
+  loginBtn: {borderRadius: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    backgroundColor: '#00897B',
+    borderColor: '#00897B',},
+  regisTxt: { color: 'white', fontSize: 16, fontWeight: '600' },
   container: { flex: 1, justifyContent: 'center', padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   verticallySpaced: { paddingVertical: 4, alignSelf: 'stretch' },
-  mt20: { marginTop: 20 },
+  mt10: { marginTop: 10 },
+  mt30: {marginTop: 30},
   footerText: { textAlign: 'center', marginTop: 20 },
   link: { color: '#1E90FF', fontWeight: 'bold' },
 });

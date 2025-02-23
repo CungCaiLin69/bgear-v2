@@ -31,7 +31,7 @@ const WelcomeScreen = () => {
         } else {
           // Not the first launch -> skip Welcome, go to Login
           setIsFirstLaunch(false);
-          router.replace('/(auth)/welcome');
+          router.replace('/(auth)/login');
         }
       } catch (error) {
         console.error('Error checking first launch or token:', error);
