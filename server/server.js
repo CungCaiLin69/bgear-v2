@@ -98,6 +98,67 @@ const verifyToken = (req, res, next) => {
   });
 };
 
+// Update user profile endpoint
+app.put('/api/update-profile', verifyToken, async (req, res) => {
+  const { name, email } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Check if the new email is already taken by another user
+    if (email) {
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ error: 'Email is already in use' });
+      }
+    }
+
+    // Update the user's profile
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { name, email }, // Ensure this matches your Prisma schema
+    });
+
+    res.json({ message: 'Profile updated successfully', user: updatedUser });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'An error occurred while updating the profile' });
+  }
+});
+
+// Change password endpoint
+app.put('/api/change-password', verifyToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id; // Extracted from the JWT token
+
+  try {
+    // Retrieve the user from the database
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Validate the current password
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'An error occurred while changing the password' });
+  }
+});
+
 // Example of a protected endpoint
 app.get('/api/protected', verifyToken, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });

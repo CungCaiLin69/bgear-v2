@@ -39,7 +39,7 @@ export default function HomePage() {
 
       {/* Greeting Card */}
       <View style={styles.greetingCard}>
-        <Text style={styles.greetingText}>Welcome, {user?.username}!</Text>
+        <Text style={styles.greetingText}>Welcome, {user?.name}!</Text>
       </View>
 
       {/* Options */}
