@@ -33,12 +33,8 @@ app.post('/api/register', async (req, res) => {
         password: hashedPassword,
         name,
         role: 'customer',
-        // If you have a verification flag in your schema, set it as needed:
       },
     });
-
-    // (Optional) Generate and send email verification here.
-    // For example, you might generate a verification token and send an email.
 
     res.status(201).json({ message: 'User created successfully', user });
   } catch (error) {
@@ -50,7 +46,7 @@ app.post('/api/register', async (req, res) => {
 // Login endpoint that issues a JWT
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     // Retrieve user from database
     const user = await prisma.user.findUnique({ where: { email } });
@@ -60,11 +56,6 @@ app.post('/api/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // (Optional) Check if the email is verified
-    if (user.verified === false) {
-      return res.status(401).json({ message: 'Email not verified' });
     }
 
     // Generate a JWT token
@@ -115,7 +106,7 @@ app.put('/api/update-profile', verifyToken, async (req, res) => {
     // Update the user's profile
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { name, email }, // Ensure this matches your Prisma schema
+      data: { name, email },
     });
 
     res.json({ message: 'Profile updated successfully', user: updatedUser });
@@ -128,7 +119,7 @@ app.put('/api/update-profile', verifyToken, async (req, res) => {
 // Change password endpoint
 app.put('/api/change-password', verifyToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const userId = req.user.id; // Extracted from the JWT token
+  const userId = req.user.id;
 
   try {
     // Retrieve the user from the database
@@ -156,6 +147,101 @@ app.put('/api/change-password', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error changing password:', error);
     res.status(500).json({ error: 'An error occurred while changing the password' });
+  }
+});
+
+// Become a repairman endpoint
+app.post('/api/become-repairman', verifyToken, async (req, res) => {
+  const { name, age, specialties, hasShop, shopName, servicesProvided } = req.body;
+  const userId = req.user.id;
+
+  console.log('Received request to become a repairman:', req.body);
+
+  try {
+    // Update the user's role to 'repairman'
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'repairman' },
+    });
+
+    // Create a new Repairman entry
+    const repairman = await prisma.repairman.create({
+      data: {
+        userId,
+        skills: specialties,
+        isAvailable: true,
+        currentLocation: '', // Add logic to handle location if needed
+      },
+    });
+
+    console.log('Repairman created:', repairman);
+
+    res.json({ message: 'You are now a repairman!', repairman });
+  } catch (error) {
+    console.error('Error becoming a repairman:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request.' });
+  }
+});
+
+// Check repairman status endpoint
+app.get('/api/check-repairman', verifyToken, async (req, res) => {
+  const userId = req.user.id;
+
+  console.log('Received request to check repairman status for user:', userId);
+
+  try {
+    const repairman = await prisma.repairman.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+
+    if (repairman) {
+      res.json({ isRepairman: true, repairman });
+    } else {
+      res.json({ isRepairman: false });
+    }
+  } catch (error) {
+    console.error('Error checking repairman status:', error);
+    res.status(500).json({ error: 'An error occurred while checking repairman status.' });
+  }
+});
+
+// Resign as repairman endpoint
+app.post('/api/resign-repairman', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Check if the user is a repairman
+    const repairman = await prisma.repairman.findUnique({
+      where: { userId },
+    });
+
+    if (!repairman) {
+      return res.status(400).json({ error: 'User is not a repairman' });
+    }
+
+    // Delete the repairman entry
+    await prisma.repairman.delete({
+      where: { userId },
+    });
+
+    // Update the user's role to 'customer'
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'customer' },
+    });
+
+    res.status(200).json({ message: 'Resignation successful', user: updatedUser });
+  } catch (error) {
+    console.error('Error resigning as repairman:', error);
+
+    // Handle specific errors
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Repairman or user not found' });
+    }
+
+    // Generic error response
+    res.status(500).json({ error: 'An error occurred while processing your request' });
   }
 });
 

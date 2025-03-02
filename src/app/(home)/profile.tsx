@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
+import { useAuth } from '../../utils/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router';
 
 const ProfilePage = () => {
   const { user, updateUser, changePassword } = useAuth();
@@ -14,7 +15,7 @@ const ProfilePage = () => {
 
   const handleSaveChanges = async () => {
     try {
-      const updatedUser = { name, email }; // Use 'name' instead of 'username'
+      const updatedUser = { name, email }; 
       await updateUser(updatedUser);
       Alert.alert('Success', 'Profile updated successfully.');
     } catch (error) {
@@ -111,10 +112,19 @@ const ProfilePage = () => {
         <Text style={styles.saveButtonText}>Save Changes</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.becomeRepairmanButton}
+        onPress={() => router.push('/form-repairman') }
+      >
+        <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
+      </TouchableOpacity>
+
       {/* Change Password Button */}
       <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
         <Text style={styles.changePasswordButtonText}>Change Password</Text>
       </TouchableOpacity>
+
+  
     </View>
   );
 };
@@ -180,6 +190,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   changePasswordButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  becomeRepairmanButton: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  becomeRepairmanButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
