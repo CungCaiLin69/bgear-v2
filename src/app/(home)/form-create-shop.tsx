@@ -41,6 +41,7 @@ const CreateShopForm = () => {
         });
 
         Alert.alert("Success", "Shop created!");
+        navigation.goBack();
       } catch (error) {
         console.error("Error submitting form:", error);
         Alert.alert("Error", "Failed to submit the form. Please try again.");
