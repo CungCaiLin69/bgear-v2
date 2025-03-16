@@ -1,7 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
-import { useRouter } from 'expo-router';
+import React from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ActivityIndicator,
+} from "react-native";
+import { useAuth } from "../../utils/AuthProvider"; // Adjust path if necessary
+import { useRouter } from "expo-router";
 
 export default function HomePage() {
   const { userToken, logout, user } = useAuth(); // Assuming `user` contains the username
@@ -9,13 +16,13 @@ export default function HomePage() {
 
   // Redirect to login if not logged in
   if (!userToken) {
-    router.replace('/(auth)/login');
+    router.replace("/(auth)/login");
     return null;
   }
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/(auth)/login'); // Redirect to login after logout
+    router.replace("/(auth)/login"); // Redirect to login after logout
   };
 
   // If user data is still loading, show a spinner
@@ -32,7 +39,7 @@ export default function HomePage() {
       {/* Profile Button */}
       <TouchableOpacity
         style={styles.profileButton}
-        onPress={() => router.push('/profile')} // Navigate to the profile page
+        onPress={() => router.push("/profile")} // Navigate to the profile page
       >
         <Text style={styles.profileButtonText}>Profile</Text>
       </TouchableOpacity>
@@ -46,16 +53,23 @@ export default function HomePage() {
       <View style={styles.optionsContainer}>
         <TouchableOpacity
           style={styles.optionButton}
-          onPress={() => router.push('/')} // Navigate to the order repairman page
+          onPress={() => router.push("/")} // Navigate to the order repairman page
         >
           <Text style={styles.optionButtonText}>Order a Repairman</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.optionButton}
-          onPress={() => router.push('/')} // Navigate to the book shop page
+          onPress={() => router.push("/")} // Navigate to the book shop page
         >
           <Text style={styles.optionButtonText}>Book a Shop</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => router.push("/form-create-shop")} // Navigate to the create a shop page
+        >
+          <Text style={styles.optionButtonText}>Create a Shop</Text>
         </TouchableOpacity>
       </View>
 
@@ -71,29 +85,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   profileButton: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     padding: 10,
   },
   profileButtonText: {
     fontSize: 16,
-    color: '#007BFF',
-    fontWeight: 'bold',
+    color: "#007BFF",
+    fontWeight: "bold",
   },
   greetingCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     borderRadius: 10,
     marginTop: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
@@ -101,34 +115,34 @@ const styles = StyleSheet.create({
   },
   greetingText: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   optionsContainer: {
     marginTop: 40,
   },
   optionButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: "#007BFF",
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   optionButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   logoutButton: {
     marginTop: 20,
     padding: 15,
-    backgroundColor: '#dc3545',
+    backgroundColor: "#dc3545",
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   logoutButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });

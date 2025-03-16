@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define the user type
 export type User = {
@@ -21,15 +21,29 @@ export type Repairman = {
   servicesProvided: string[];
 };
 
+// Define the Shop type
+export type Shop = {
+  id: number;
+  ownerId: string;
+  name: string;
+  location: string;
+  services: string[];
+  hasRepairman: boolean;
+};
+
 // Define the AuthContext type
 export type AuthContextType = {
   userToken: string | null;
   user: User | null;
-  repairman: Repairman | null; 
+  repairman: Repairman | null;
+  shop: Shop | null;
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updatedUser: User) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<void>;
   isLoading: boolean;
   becomeRepairman: (repairmanData: {
     name: string;
@@ -39,6 +53,12 @@ export type AuthContextType = {
     shopName?: string;
     servicesProvided: string[];
   }) => Promise<void>;
+  createShop: (createShopData: {
+    shopName: string;
+    shopLocation: string;
+    shopServices: string[];
+    hasRepairman: boolean;
+  }) => Promise<void>;
   checkRepairmanStatus: () => Promise<void>;
   resignAsRepairman: () => Promise<void>;
 };
@@ -47,25 +67,30 @@ export type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
-export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.Element => {
+export const AuthProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element => {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [repairman, setRepairman] = useState<Repairman | null>(null); // Initialize repairman state
+  const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Check if the user is logged in on app startup
   useEffect(() => {
     const checkTokenAndUser = async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
-        const userData = await AsyncStorage.getItem('user');
+        const token = await AsyncStorage.getItem("userToken");
+        const userData = await AsyncStorage.getItem("user");
         if (token && userData) {
           setUserToken(token);
           setUser(JSON.parse(userData));
           await checkRepairmanStatus(); // Check repairman status on app startup
         }
       } catch (error) {
-        console.error('Error reading token or user data:', error);
+        console.error("Error reading token or user data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -78,8 +103,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
   const login = async (token: string, user: User) => {
     setUserToken(token);
     setUser(user);
-    await AsyncStorage.setItem('userToken', token);
-    await AsyncStorage.setItem('user', JSON.stringify(user));
+    await AsyncStorage.setItem("userToken", token);
+    await AsyncStorage.setItem("user", JSON.stringify(user));
     await checkRepairmanStatus(); // Check repairman status after login
   };
 
@@ -88,17 +113,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     setUserToken(null);
     setUser(null);
     setRepairman(null); // Clear repairman state on logout
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('user');
+    setShop(null);
+    await AsyncStorage.removeItem("userToken");
+    await AsyncStorage.removeItem("user");
   };
 
   // Update user profile function
   const updateUser = async (updatedUser: User) => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/update-profile', {
-        method: 'PUT',
+      const response = await fetch("http://10.0.2.2:3000/api/update-profile", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify(updatedUser),
@@ -107,26 +133,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update profile');
+        throw new Error(data.error || "Failed to update profile");
       }
 
       // Update the user in the AuthProvider state
       setUser(updatedUser);
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error("Error updating profile:", error);
       throw error;
     }
   };
 
   // Change password function
-  const changePassword = async (currentPassword: string, newPassword: string) => {
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ) => {
     try {
       // Call your backend API to change the password
-      const response = await fetch('http://10.0.2.2:3000/api/change-password', {
-        method: 'PUT',
+      const response = await fetch("http://10.0.2.2:3000/api/change-password", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${userToken}`,
         },
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -135,10 +164,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to change password');
+        throw new Error(data.error || "Failed to change password");
       }
     } catch (error) {
-      console.error('Error changing password:', error);
+      console.error("Error changing password:", error);
       throw error;
     }
   };
@@ -153,33 +182,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     servicesProvided: string[];
   }) => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/become-repairman', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userToken}`,
-        },
-        body: JSON.stringify(repairmanData),
-      });
+      const response = await fetch(
+        "http://10.0.2.2:3000/api/become-repairman",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userToken}`,
+          },
+          body: JSON.stringify(repairmanData),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to become a repairman');
+        throw new Error(data.error || "Failed to become a repairman");
       }
 
       // Update the user's role in the AuthProvider state
       setUser((prevUser) => ({
         ...prevUser!,
-        role: 'repairman',
+        role: "repairman",
       }));
 
       // Update the repairman state
       setRepairman(data.repairman);
 
-      await AsyncStorage.setItem('user', JSON.stringify({ ...user!, role: 'repairman' }));
+      await AsyncStorage.setItem(
+        "user",
+        JSON.stringify({ ...user!, role: "repairman" })
+      );
     } catch (error) {
-      console.error('Error becoming a repairman:', error);
+      console.error("Error becoming a repairman:", error);
       throw error;
     }
   };
@@ -187,8 +222,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
   // Check repairman status function
   const checkRepairmanStatus = async () => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/check-repairman', {
-        method: 'GET',
+      const response = await fetch("http://10.0.2.2:3000/api/check-repairman", {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${userToken}`,
         },
@@ -202,38 +237,83 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         setRepairman(null);
       }
     } catch (error) {
-      console.error('Error checking repairman status:', error);
+      console.error("Error checking repairman status:", error);
     }
   };
 
   // Resign as repairman function
   const resignAsRepairman = async () => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/resign-repairman', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${userToken}`,
-        },
-      });
+      const response = await fetch(
+        "http://10.0.2.2:3000/api/resign-repairman",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to resign as a repairman');
+        throw new Error(data.error || "Failed to resign as a repairman");
       }
 
       // Update the user's role in the AuthProvider state
       setUser((prevUser) => ({
         ...prevUser!,
-        role: 'customer',
+        role: "customer",
       }));
 
       // Clear the repairman state
       setRepairman(null);
 
-      await AsyncStorage.setItem('user', JSON.stringify({ ...user!, role: 'customer' }));
+      await AsyncStorage.setItem(
+        "user",
+        JSON.stringify({ ...user!, role: "customer" })
+      );
     } catch (error) {
-      console.error('Error resigning as repairman:', error);
+      console.error("Error resigning as repairman:", error);
+      throw error;
+    }
+  };
+
+  // Create a shop
+  const createShop = async (createShopData: {
+    shopName: string;
+    shopLocation: string;
+    shopServices: string[];
+    hasRepairman: boolean;
+  }) => {
+    try {
+      const response = await fetch("http://10.0.2.2:3000/api/create-shop", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userToken}`,
+        },
+        body: JSON.stringify(createShopData),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create shop!");
+      }
+
+      setUser((prevUser) => ({
+        ...prevUser!,
+        role: "shop_owner",
+      }));
+
+      setShop(data.shop);
+
+      await AsyncStorage.setItem(
+        "user",
+        JSON.stringify({ ...user!, role: "shop-owner" })
+      );
+    } catch (error) {
+      console.error("Error in creating a shop: ", error);
       throw error;
     }
   };
@@ -252,6 +332,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         becomeRepairman,
         checkRepairmanStatus,
         resignAsRepairman,
+        createShop,
+        shop,
       }}
     >
       {children}
@@ -263,7 +345,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

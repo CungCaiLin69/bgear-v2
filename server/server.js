@@ -1,26 +1,26 @@
-const express = require('express');
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const { PrismaClient } = require('@prisma/client');
+const express = require("express");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const app = express();
 
 // Use environment variable for JWT secret in a real app!
-const JWT_SECRET = 'CungCaiLin69';
+const JWT_SECRET = "CungCaiLin69";
 
 app.use(cors());
 app.use(express.json());
 
 // Registration endpoint
-app.post('/api/register', async (req, res) => {
+app.post("/api/register", async (req, res) => {
   const { email, password, name } = req.body;
 
   try {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(400).json({ error: "User already exists" });
     }
 
     // Hash the password before storing it
@@ -32,57 +32,60 @@ app.post('/api/register', async (req, res) => {
         email,
         password: hashedPassword,
         name,
-        role: 'customer',
+        role: "customer",
       },
     });
 
-    res.status(201).json({ message: 'User created successfully', user });
+    res.status(201).json({ message: "User created successfully", user });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'An error occurred while creating the user' });
+    console.error("Error creating user:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while creating the user" });
   }
 });
 
 // Login endpoint that issues a JWT
-app.post('/api/login', async (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
     // Retrieve user from database
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     // Validate password using bcrypt
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Generate a JWT token
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
+      JWT_SECRET
     );
 
-    res.json({ message: 'Login successful', token, user });
+    res.json({ message: "Login successful", token, user });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'An error occurred during login' });
+    console.error("Login error:", error);
+    res.status(500).json({ message: "An error occurred during login" });
   }
 });
 
 // Middleware to verify JWT on protected routes
 const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
+  const authHeader = req.headers["authorization"];
+  if (!authHeader)
+    return res.status(401).json({ message: "No token provided" });
 
   // Expecting the header to be in the format "Bearer <token>"
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Token format invalid' });
+  const token = authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Token format invalid" });
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(403).json({ message: 'Failed to authenticate token' });
+      return res.status(403).json({ message: "Failed to authenticate token" });
     }
     req.user = decoded;
     next();
@@ -90,7 +93,7 @@ const verifyToken = (req, res, next) => {
 };
 
 // Update user profile endpoint
-app.put('/api/update-profile', verifyToken, async (req, res) => {
+app.put("/api/update-profile", verifyToken, async (req, res) => {
   const { name, email } = req.body;
   const userId = req.user.id;
 
@@ -99,7 +102,7 @@ app.put('/api/update-profile', verifyToken, async (req, res) => {
     if (email) {
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser && existingUser.id !== userId) {
-        return res.status(400).json({ error: 'Email is already in use' });
+        return res.status(400).json({ error: "Email is already in use" });
       }
     }
 
@@ -109,15 +112,17 @@ app.put('/api/update-profile', verifyToken, async (req, res) => {
       data: { name, email },
     });
 
-    res.json({ message: 'Profile updated successfully', user: updatedUser });
+    res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'An error occurred while updating the profile' });
+    console.error("Error updating profile:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while updating the profile" });
   }
 });
 
 // Change password endpoint
-app.put('/api/change-password', verifyToken, async (req, res) => {
+app.put("/api/change-password", verifyToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
 
@@ -125,13 +130,13 @@ app.put('/api/change-password', verifyToken, async (req, res) => {
     // Retrieve the user from the database
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Validate the current password
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      return res.status(401).json({ error: "Current password is incorrect" });
     }
 
     // Hash the new password
@@ -143,25 +148,28 @@ app.put('/api/change-password', verifyToken, async (req, res) => {
       data: { password: hashedPassword },
     });
 
-    res.json({ message: 'Password changed successfully' });
+    res.json({ message: "Password changed successfully" });
   } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ error: 'An error occurred while changing the password' });
+    console.error("Error changing password:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while changing the password" });
   }
 });
 
 // Become a repairman endpoint
-app.post('/api/become-repairman', verifyToken, async (req, res) => {
-  const { name, age, specialties, hasShop, shopName, servicesProvided } = req.body;
+app.post("/api/become-repairman", verifyToken, async (req, res) => {
+  const { name, age, specialties, hasShop, shopName, servicesProvided } =
+    req.body;
   const userId = req.user.id;
 
-  console.log('Received request to become a repairman:', req.body);
+  console.log("Received request to become a repairman:", req.body);
 
   try {
     // Update the user's role to 'repairman'
     await prisma.user.update({
       where: { id: userId },
-      data: { role: 'repairman' },
+      data: { role: "repairman" },
     });
 
     // Create a new Repairman entry
@@ -170,24 +178,26 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
         userId,
         skills: specialties,
         isAvailable: true,
-        currentLocation: '', // Add logic to handle location if needed
+        currentLocation: "", // Add logic to handle location if needed
       },
     });
 
-    console.log('Repairman created:', repairman);
+    console.log("Repairman created:", repairman);
 
-    res.json({ message: 'You are now a repairman!', repairman });
+    res.json({ message: "You are now a repairman!", repairman });
   } catch (error) {
-    console.error('Error becoming a repairman:', error);
-    res.status(500).json({ error: 'An error occurred while processing your request.' });
+    console.error("Error becoming a repairman:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while processing your request." });
   }
 });
 
 // Check repairman status endpoint
-app.get('/api/check-repairman', verifyToken, async (req, res) => {
+app.get("/api/check-repairman", verifyToken, async (req, res) => {
   const userId = req.user.id;
 
-  console.log('Received request to check repairman status for user:', userId);
+  console.log("Received request to check repairman status for user:", userId);
 
   try {
     const repairman = await prisma.repairman.findUnique({
@@ -201,13 +211,15 @@ app.get('/api/check-repairman', verifyToken, async (req, res) => {
       res.json({ isRepairman: false });
     }
   } catch (error) {
-    console.error('Error checking repairman status:', error);
-    res.status(500).json({ error: 'An error occurred while checking repairman status.' });
+    console.error("Error checking repairman status:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while checking repairman status." });
   }
 });
 
 // Resign as repairman endpoint
-app.post('/api/resign-repairman', verifyToken, async (req, res) => {
+app.post("/api/resign-repairman", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -217,7 +229,7 @@ app.post('/api/resign-repairman', verifyToken, async (req, res) => {
     });
 
     if (!repairman) {
-      return res.status(400).json({ error: 'User is not a repairman' });
+      return res.status(400).json({ error: "User is not a repairman" });
     }
 
     // Delete the repairman entry
@@ -228,26 +240,92 @@ app.post('/api/resign-repairman', verifyToken, async (req, res) => {
     // Update the user's role to 'customer'
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role: 'customer' },
+      data: { role: "customer" },
     });
 
-    res.status(200).json({ message: 'Resignation successful', user: updatedUser });
+    res
+      .status(200)
+      .json({ message: "Resignation successful", user: updatedUser });
   } catch (error) {
-    console.error('Error resigning as repairman:', error);
+    console.error("Error resigning as repairman:", error);
 
     // Handle specific errors
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Repairman or user not found' });
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Repairman or user not found" });
     }
 
     // Generic error response
-    res.status(500).json({ error: 'An error occurred while processing your request' });
+    res
+      .status(500)
+      .json({ error: "An error occurred while processing your request" });
+  }
+});
+
+// Create a shop endpoint
+app.post("/api/create-shop", verifyToken, async (req, res) => {
+  const { shopName, shopLocation, shopServices, hasRepairman } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // update user's role to 'shop_owner'
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: "shop_owner" },
+    });
+
+    //create new shop
+    const shop = await prisma.shop.create({
+      data: {
+        ownerId: userId,
+        name: shopName,
+        location: shopLocation,
+        hasRepairman: true,
+        services: shopServices,
+      },
+    });
+
+    console.log("Shop created:", shop);
+
+    res.json({ message: "You now have a shop!", shop });
+  } catch (error) {
+    console.error("Error creating shop", error);
+    res
+      .status(500)
+      .json({ error: "An error occured while processing your request." });
+  }
+});
+
+// Update shop endpoint
+app.patch("/api/update-shop", verifyToken, async (req, res) => {
+  const { ownerId, name, location, photos, services } = req.body;
+
+  const shop = await prisma.shop.findUnique({
+    where: {
+      ownerId: ownerId,
+    },
+  });
+
+  try {
+    const updatedShop = await prisma.shop.update({
+      where: { id: shop.id },
+      data: {
+        name: name,
+        location: location,
+        photos: photos,
+        services: services,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating shop: ", error);
+    res
+      .status(500)
+      .json({ error: "An error occured while updaeting the profile" });
   }
 });
 
 // Example of a protected endpoint
-app.get('/api/protected', verifyToken, (req, res) => {
-  res.json({ message: 'This is a protected route', user: req.user });
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({ message: "This is a protected route", user: req.user });
 });
 
 const PORT = process.env.PORT || 3000;
