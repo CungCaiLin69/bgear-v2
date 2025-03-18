@@ -6,7 +6,6 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const app = express();
 
-// Use environment variable for JWT secret in a real app!
 const JWT_SECRET = 'CungCaiLin69';
 
 app.use(cors());
@@ -152,33 +151,43 @@ app.put('/api/change-password', verifyToken, async (req, res) => {
 
 // Become a repairman endpoint
 app.post('/api/become-repairman', verifyToken, async (req, res) => {
-  const { name, age, specialties, hasShop, shopName, servicesProvided } = req.body;
+  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
   const userId = req.user.id;
 
-  console.log('Received request to become a repairman:', req.body);
-
   try {
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'Phone number is required.' });
+    }
+    // Check if the user is already a repairman
+    const existingRepairman = await prisma.repairman.findUnique({
+      where: { userId },
+    });
+
+    if (existingRepairman) {
+      return res.status(400).json({ error: 'User is already a repairman' });
+    }
+
+    // Create new repairman entry
+    const newRepairman = await prisma.repairman.create({
+      data: {
+        userId,
+        skills,
+        servicesProvided,
+        profilePicture: profilePicture || null,
+        phoneNumber,
+        isVerified: false,
+      },
+    });
+
     // Update the user's role to 'repairman'
     await prisma.user.update({
       where: { id: userId },
       data: { role: 'repairman' },
     });
 
-    // Create a new Repairman entry
-    const repairman = await prisma.repairman.create({
-      data: {
-        userId,
-        skills: specialties,
-        isAvailable: true,
-        currentLocation: '', // Add logic to handle location if needed
-      },
-    });
-
-    console.log('Repairman created:', repairman);
-
-    res.json({ message: 'You are now a repairman!', repairman });
+    res.json({ message: 'You are now a repairman!', repairman: newRepairman });
   } catch (error) {
-    console.error('Error becoming a repairman:', error);
+    console.error('Error in become-repairman endpoint:', error);
     res.status(500).json({ error: 'An error occurred while processing your request.' });
   }
 });
@@ -186,8 +195,6 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
 // Check repairman status endpoint
 app.get('/api/check-repairman', verifyToken, async (req, res) => {
   const userId = req.user.id;
-
-  console.log('Received request to check repairman status for user:', userId);
 
   try {
     const repairman = await prisma.repairman.findUnique({
@@ -203,6 +210,46 @@ app.get('/api/check-repairman', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error checking repairman status:', error);
     res.status(500).json({ error: 'An error occurred while checking repairman status.' });
+  }
+});
+
+// Edit repairman profile
+app.put('/api/edit-repairman', verifyToken, async (req, res) => {
+  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Check if the user is a repairman
+    const repairman = await prisma.repairman.findUnique({
+      where: { userId },
+    });
+
+    if (!repairman) {
+      return res.status(400).json({ error: 'User is not a repairman' });
+    }
+
+    let isVerified = repairman.isVerified;
+    if (phoneNumber && phoneNumber !== repairman.phoneNumber) {
+      isVerified = false;
+      await sendVerificationCode(phoneNumber); // Send new verification code
+    }
+
+    // Update the repairman profile
+    const updatedRepairman = await prisma.repairman.update({
+      where: { userId },
+      data: {
+        skills,
+        servicesProvided,
+        profilePicture: profilePicture || null,
+        phoneNumber: phoneNumber || repairman.phoneNumber,
+        isVerified,
+      },
+    });
+
+    res.json({ message: 'Repairman profile updated successfully', repairman: updatedRepairman });
+  } catch (error) {
+    console.error('Error updating repairman profile:', error);
+    res.status(500).json({ error: 'An error occurred while updating the repairman profile' });
   }
 });
 

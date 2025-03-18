@@ -1,21 +1,43 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../../utils/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker'; 
 
 const ProfilePage = () => {
-  const { user, updateUser, changePassword } = useAuth();
+  const { user, repairman, updateUser, changePassword } = useAuth();
   const navigation = useNavigation();
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [profilePicture, setProfilePicture] = useState(user?.profilePicture || null);
+
+  // Handle profile picture upload
+  const handleProfilePictureUpload = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to upload a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setProfilePicture(result.assets[0].uri);
+    }
+  };
 
   const handleSaveChanges = async () => {
     try {
-      const updatedUser = { name, email }; 
+      const updatedUser = { name, email, profilePicture };
       await updateUser(updatedUser);
       Alert.alert('Success', 'Profile updated successfully.');
     } catch (error) {
@@ -50,86 +72,99 @@ const ProfilePage = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Text style={styles.backButtonText}>{'Back'}</Text>
-      </TouchableOpacity>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'Back'}</Text>
+        </TouchableOpacity>
 
-      {/* User Photo */}
-      <View style={styles.photoContainer}>
-        <Image
-          source={{ uri: 'https://via.placeholder.com/150' }} // Placeholder image
-          style={styles.photo}
-        />
+        {/* User Photo */}
+        <View style={styles.photoContainer}>
+          <TouchableOpacity onPress={handleProfilePictureUpload}>
+            <Image
+                source={{ uri: profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541' }} 
+                style={styles.photo}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your name"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+          />
+        </View>
+
+        {/* Change Password */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Change Password</Text>
+          <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter new password"
+              secureTextEntry
+          />
+          <TextInput
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm new password"
+              secureTextEntry
+          />
+        </View>
+
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
+          <Text style={styles.saveButtonText}>Save Changes</Text>
+        </TouchableOpacity>
+
+        {/* Repairman Button */}
+        {repairman ? (
+        // If the user is already a repairman, show "Edit Repairman Profile" button
+        <TouchableOpacity
+          style={styles.becomeRepairmanButton}
+          onPress={() => router.push('/(home)/edit-repairman')}
+        >
+          <Text style={styles.becomeRepairmanButtonText}>Edit Repairman Profile</Text>
+        </TouchableOpacity>
+      ) : (
+        // If the user is not a repairman, show "Become a Repairman" button
+        <TouchableOpacity
+          style={styles.becomeRepairmanButton}
+          onPress={() => router.push('/(home)/create-repairman')}
+        >
+          <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
+        </TouchableOpacity>
+      )}
+
+        <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
+          <Text style={styles.changePasswordButtonText}>Change Password</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* Name Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Enter your name"
-        />
-      </View>
-
-      {/* Email Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      {/* Change Password */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Change Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Enter new password"
-          secureTextEntry
-        />
-        <TextInput
-          style={styles.input}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          placeholder="Confirm new password"
-          secureTextEntry
-        />
-      </View>
-
-      {/* Save Changes Button */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
-        <Text style={styles.saveButtonText}>Save Changes</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.becomeRepairmanButton}
-        onPress={() => router.push('/form-repairman') }
-      >
-        <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
-      </TouchableOpacity>
-
-      {/* Change Password Button */}
-      <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
-        <Text style={styles.changePasswordButtonText}>Change Password</Text>
-      </TouchableOpacity>
-
-  
-    </View>
+      </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1, 
+  },
   container: {
     flex: 1,
     padding: 20,
@@ -149,7 +184,7 @@ const styles = StyleSheet.create({
   photoContainer: {
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 60, // Add margin to avoid overlap with the back button
+    marginTop: 60, 
   },
   photo: {
     width: 150,

@@ -32,7 +32,7 @@ export default function HomePage() {
       {/* Profile Button */}
       <TouchableOpacity
         style={styles.profileButton}
-        onPress={() => router.push('/profile')} // Navigate to the profile page
+        onPress={() => router.push({ pathname: '/(home)/profile' })} // Navigate to the profile page
       >
         <Text style={styles.profileButtonText}>Profile</Text>
       </TouchableOpacity>
