@@ -6,38 +6,45 @@ export type User = {
   id?: string;
   email: string;
   name: string;
+  profilePicture?: string | null; // Allow null values
   role?: string; // customer, repairman, shop_owner
+  // phoneNumber: string;
 };
 
 // Define the repairman type
 export type Repairman = {
   id: number;
   userId: string;
+  name: string;
   skills: string[];
-  isAvailable: boolean;
-  currentLocation: string;
-  hasShop: boolean;
-  shopName?: string;
   servicesProvided: string[];
+  profilePicture?: string | null; // Allow null values
+  isAvailable: boolean;
+  currentLocation?: string;
+  phoneNumber: string;
 };
 
 // Define the AuthContext type
 export type AuthContextType = {
   userToken: string | null;
   user: User | null;
-  repairman: Repairman | null; 
+  repairman: Repairman | null;
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updatedUser: User) => Promise<void>;
+  editRepairman: (repairmanData: {
+    name: string;
+    skills: string[];
+    servicesProvided: string[];
+    profilePicture?: string | null;
+  }) => Promise<void>; // Add this
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   isLoading: boolean;
   becomeRepairman: (repairmanData: {
     name: string;
-    age: number;
-    specialties: string[];
-    hasShop: boolean;
-    shopName?: string;
+    skills: string[];
     servicesProvided: string[];
+    profilePicture?: string | null;
   }) => Promise<void>;
   checkRepairmanStatus: () => Promise<void>;
   resignAsRepairman: () => Promise<void>;
@@ -50,7 +57,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.Element => {
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [repairman, setRepairman] = useState<Repairman | null>(null); // Initialize repairman state
+  const [repairman, setRepairman] = useState<Repairman | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Check if the user is logged in on app startup
@@ -59,10 +66,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
       try {
         const token = await AsyncStorage.getItem('userToken');
         const userData = await AsyncStorage.getItem('user');
+        const repairmanData = await AsyncStorage.getItem('repairman');
         if (token && userData) {
           setUserToken(token);
           setUser(JSON.parse(userData));
-          await checkRepairmanStatus(); // Check repairman status on app startup
+
+          if (repairmanData) {
+            setRepairman(JSON.parse(repairmanData));
+          } else {
+            await checkRepairmanStatus(); // Fetch repairman status from the server
+          }
         }
       } catch (error) {
         console.error('Error reading token or user data:', error);
@@ -90,6 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     setRepairman(null); // Clear repairman state on logout
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('repairman');
   };
 
   // Update user profile function
@@ -119,10 +133,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     }
   };
 
+  const editRepairman = async (repairmanData: {
+    name: string;
+    skills: string[];
+    servicesProvided: string[];
+    profilePicture?: string | null;
+  }) => {
+    try {
+      const response = await fetch('http://10.0.2.2:3000/api/edit-repairman', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userToken}`,
+        },
+        body: JSON.stringify(repairmanData),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update repairman profile');
+      }
+  
+      // Update the repairman state in the AuthProvider
+      setRepairman(data.repairman);
+  
+      return data;
+    } catch (error) {
+      console.error('Error updating repairman profile:', error);
+      throw error;
+    }
+  };
+
   // Change password function
   const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
-      // Call your backend API to change the password
       const response = await fetch('http://10.0.2.2:3000/api/change-password', {
         method: 'PUT',
         headers: {
@@ -146,11 +191,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
   // Become a repairman function
   const becomeRepairman = async (repairmanData: {
     name: string;
-    age: number;
-    specialties: string[];
-    hasShop: boolean;
-    shopName?: string;
+    skills: string[];
     servicesProvided: string[];
+    profilePicture?: string | null;
   }) => {
     try {
       const response = await fetch('http://10.0.2.2:3000/api/become-repairman', {
@@ -239,23 +282,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        userToken,
-        user,
-        repairman, // Include repairman in the context value
-        login,
-        logout,
-        updateUser,
-        changePassword,
-        isLoading,
-        becomeRepairman,
-        checkRepairmanStatus,
-        resignAsRepairman,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{
+            userToken,
+            user,
+            repairman,
+            login,
+            logout,
+            updateUser,
+            editRepairman,
+            changePassword,
+            isLoading,
+            becomeRepairman,
+            checkRepairmanStatus,
+            resignAsRepairman,
+          }}
+      >
+        {children}
+      </AuthContext.Provider>
   );
 };
 
