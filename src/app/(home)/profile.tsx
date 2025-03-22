@@ -3,10 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, Scro
 import { useAuth } from '../../utils/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker'; 
+import * as ImagePicker from 'expo-image-picker';
 
 const ProfilePage = () => {
-  const { user, repairman, updateUser, changePassword } = useAuth();
+  const { user, repairman, shop, updateUser, changePassword } = useAuth();
   const navigation = useNavigation();
 
   const [name, setName] = useState(user?.name || '');
@@ -37,7 +37,14 @@ const ProfilePage = () => {
 
   const handleSaveChanges = async () => {
     try {
-      const updatedUser = { name, email, profilePicture };
+      const updatedUser = { 
+        ...user, // Spread existing user properties
+        name,    // Override name
+        email,   // Override email
+        profilePicture, // Override profilePicture
+        has_shop: user?.has_shop || false,
+        is_repairman: user?.is_repairman || false,
+      };
       await updateUser(updatedUser);
       Alert.alert('Success', 'Profile updated successfully.');
     } catch (error) {
@@ -83,8 +90,8 @@ const ProfilePage = () => {
         <View style={styles.photoContainer}>
           <TouchableOpacity onPress={handleProfilePictureUpload}>
             <Image
-                source={{ uri: profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541' }} 
-                style={styles.photo}
+              source={{ uri: profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541' }}
+              style={styles.photo}
             />
           </TouchableOpacity>
         </View>
@@ -92,22 +99,22 @@ const ProfilePage = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Name</Text>
           <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter your name"
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Enter your name"
           />
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Email</Text>
           <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email"
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
         </View>
 
@@ -115,18 +122,18 @@ const ProfilePage = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Change Password</Text>
           <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter new password"
-              secureTextEntry
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Enter new password"
+            secureTextEntry
           />
           <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              secureTextEntry
+            style={styles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm new password"
+            secureTextEntry
           />
         </View>
 
@@ -136,34 +143,53 @@ const ProfilePage = () => {
 
         {/* Repairman Button */}
         {repairman ? (
-        // If the user is already a repairman, show "Edit Repairman Profile" button
-        <TouchableOpacity
-          style={styles.becomeRepairmanButton}
-          onPress={() => router.push('/(home)/edit-repairman')}
-        >
-          <Text style={styles.becomeRepairmanButtonText}>Edit Repairman Profile</Text>
-        </TouchableOpacity>
-      ) : (
-        // If the user is not a repairman, show "Become a Repairman" button
-        <TouchableOpacity
-          style={styles.becomeRepairmanButton}
-          onPress={() => router.push('/(home)/create-repairman')}
-        >
-          <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
-        </TouchableOpacity>
-      )}
+          // If the user is already a repairman, show "Edit Repairman Profile" button
+          <TouchableOpacity
+            style={styles.becomeRepairmanButton}
+            onPress={() => router.push('/(home)/edit-repairman')}
+          >
+            <Text style={styles.becomeRepairmanButtonText}>Edit Repairman Profile</Text>
+          </TouchableOpacity>
+        ) : (
+          // If the user is not a repairman, show "Become a Repairman" button
+          <TouchableOpacity
+            style={styles.becomeRepairmanButton}
+            onPress={() => router.push('/(home)/create-repairman')}
+          >
+            <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Shop Button */}
+        {shop ? (
+          // If the user has a shop, show "Edit Shop" button
+          <TouchableOpacity
+            style={styles.shopButton}
+            onPress={() => router.push('/(home)/edit-shop')}
+          >
+            <Text style={styles.shopButtonText}>Edit Shop</Text>
+          </TouchableOpacity>
+        ) : (
+          // If the user doesn't have a shop, show "Open a Shop" button
+          <TouchableOpacity
+            style={styles.shopButton}
+            onPress={() => router.push('/(home)/create-shop')}
+          >
+            <Text style={styles.shopButtonText}>Open a Shop</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
           <Text style={styles.changePasswordButtonText}>Change Password</Text>
         </TouchableOpacity>
       </View>
-      </ScrollView>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   scrollContainer: {
-    flexGrow: 1, 
+    flexGrow: 1,
   },
   container: {
     flex: 1,
@@ -184,7 +210,7 @@ const styles = StyleSheet.create({
   photoContainer: {
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 60, 
+    marginTop: 60,
   },
   photo: {
     width: 150,
@@ -237,6 +263,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   becomeRepairmanButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  shopButton: {
+    backgroundColor: '#FFA500',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  shopButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
