@@ -179,10 +179,10 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
       },
     });
 
-    // Update the user's role to 'repairman'
+    // Update the user's is_repairman field
     await prisma.user.update({
       where: { id: userId },
-      data: { role: 'repairman' },
+      data: { is_repairman: true },
     });
 
     res.json({ message: 'You are now a repairman!', repairman: newRepairman });
@@ -255,9 +255,9 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
 
 // Resign as repairman endpoint
 app.post('/api/resign-repairman', verifyToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
+  const userId = req.user.id;
 
+  try {
     // Check if the user is a repairman
     const repairman = await prisma.repairman.findUnique({
       where: { userId },
@@ -272,23 +272,91 @@ app.post('/api/resign-repairman', verifyToken, async (req, res) => {
       where: { userId },
     });
 
-    // Update the user's role to 'customer'
-    const updatedUser = await prisma.user.update({
+    // Update the user's is_repairman field
+    await prisma.user.update({
       where: { id: userId },
-      data: { role: 'customer' },
+      data: { is_repairman: false },
     });
 
-    res.status(200).json({ message: 'Resignation successful', user: updatedUser });
+    res.json({ message: 'Resignation successful' });
   } catch (error) {
     console.error('Error resigning as repairman:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request.' });
+  }
+});
 
-    // Handle specific errors
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Repairman or user not found' });
-    }
 
-    // Generic error response
-    res.status(500).json({ error: 'An error occurred while processing your request' });
+app.post('/api/create-shop', verifyToken, async (req, res) => {
+  const { shopName, shopLocation, shopServices } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Create the shop
+    const shop = await prisma.shop.create({
+      data: {
+        ownerId: userId,
+        name: shopName,
+        location: shopLocation,
+        services: shopServices,
+      },
+    });
+
+    // Update the user's has_shop field
+    await prisma.user.update({
+      where: { id: userId },
+      data: { has_shop: true },
+    });
+
+    res.json({ message: 'You now have a shop!', shop });
+  } catch (error) {
+    console.error('Error creating shop:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request.' });
+  }
+});
+
+app.put('/api/edit-shop', verifyToken, async (req, res) => {
+  const { shopName, shopLocation, shopServices, phoneNumber, photos } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Update the shop
+    const shop = await prisma.shop.update({
+      where: { ownerId: userId },
+      data: {
+        name: shopName,
+        location: shopLocation,
+        services: shopServices,
+        phoneNumber,
+        photos,
+      },
+    });
+
+    res.json({ message: 'Shop updated successfully', shop });
+  } catch (error) {
+    console.error('Error updating shop:', error);
+    res.status(500).json({ error: 'An error occurred while updating the shop.' });
+  }
+});
+
+app.post('/api/close-shop', verifyToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Delete the shop
+    await prisma.shop.delete({
+      where: { ownerId: userId },
+    });
+
+    // Update the user's has_shop field
+    await prisma.user.update({
+      where: { id: userId },
+      data: { has_shop: false },
+    });
+
+    res.json({ message: 'Shop closed successfully.' });
+  } catch (error) {
+    console.error('Error closing shop:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request.' });
   }
 });
 

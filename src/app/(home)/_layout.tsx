@@ -9,6 +9,8 @@ export default function HomeLayout() {
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="create-repairman" options={{ headerShown: false }} />
         <Stack.Screen name="edit-repairman" options={{ headerShown: false }} />
+        <Stack.Screen name="create-shop" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-shop" options={{ headerShown: false }} />
       </Stack>
     </ProtectedRoute>
   );

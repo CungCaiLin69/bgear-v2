@@ -69,12 +69,12 @@ const BecomeRepairmanForm = () => {
         <Image source={{ uri: profilePictureUrl }} style={styles.profilePicture} />
       )}
 
-      {/* <TextInput
+      <TextInput
         style={styles.input}
         placeholder="Name"
         value={name}
         onChangeText={setName}
-      /> */}
+      />
       <TextInput
         style={styles.input}
         placeholder="Skills (e.g. car, bike)"

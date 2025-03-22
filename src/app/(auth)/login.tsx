@@ -50,7 +50,12 @@ export default function LoginScreen() {
       }
 
       // Save the JWT token and user data, then redirect to the homepage
-      await login(data.token, { name: data.user.name }); // Pass the name from the backend
+      await login(data.token, {
+        name: data.user.name,
+        email: data.user.email,
+        has_shop: false,
+        is_repairman: false,
+      }); // Pass the name from the backend
       router.replace('/(home)/home');
     } catch (error) {
       console.error('Error during login:', error);
