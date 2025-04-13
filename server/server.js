@@ -414,6 +414,17 @@ app.post('/api/close-shop', verifyToken, async (req, res) => {
   }
 });
 
+app.get('/api/get-all-shop', verifyToken, async (req, res) => {
+  try{
+    const shops = await prisma.shop.findMany();
+    console.log("This is req: ", req);
+    res.json(shops);
+  }catch(error){
+    console.error('Error getting all shops:', error);
+    res.status(500).json({ error: 'An error occured while processing your request.'})
+  }
+})
+
 // Example of a protected endpoint
 app.get('/api/protected', verifyToken, (req, res) => {
   res.json({ message: 'This is a protected route', user: req.user });
