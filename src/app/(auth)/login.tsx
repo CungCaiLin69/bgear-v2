@@ -53,9 +53,9 @@ export default function LoginScreen() {
       await login(data.token, {
         name: data.user.name,
         email: data.user.email,
-        has_shop: false,
-        is_repairman: false,
-      }); // Pass the name from the backend
+        has_shop: data.user.has_shop,
+        is_repairman: data.user.is_repairman,
+      }); 
       router.replace('/(home)/home');
     } catch (error) {
       console.error('Error during login:', error);

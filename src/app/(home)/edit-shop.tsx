@@ -20,11 +20,11 @@ const EditShopScreen = () => {
   // Pre-fill form with shop data
   useEffect(() => {
     if (shop) {
-      setShopName(shop.name);
-      setShopLocation(shop.location);
-      setShopServices(shop.services);
-      setPhoneNumber(shop.phoneNumber || '');
-      setPhotos(shop.photos || []);
+      setShopName(shop?.name);
+      setShopLocation(shop?.location);
+      setShopServices(shop?.services);
+      setPhoneNumber(shop?.phoneNumber || '');
+      setPhotos(shop?.photos || []);
     }
   }, [shop]);
 

@@ -50,6 +50,7 @@ export type AuthContextType = {
     skills: string[];
     servicesProvided: string[];
     profilePicture?: string | null;
+    phoneNumber: string
   }) => Promise<void>; // Add this
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   isLoading: boolean;
@@ -98,16 +99,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         const repairmanData = await AsyncStorage.getItem('repairman');
         const shopData = await AsyncStorage.getItem('shop');
         if (token && userData) {
+           const parsedUser: User = JSON.parse(userData);
           setUserToken(token);
-          setUser(JSON.parse(userData));
-
-          if (repairmanData) {
-            setRepairman(JSON.parse(repairmanData));
-          }
-
-          if (shopData) {
-            setShop(JSON.parse(shopData));
-          }
+          setUser(parsedUser);
+          if (parsedUser.is_repairman) await checkRepairmanStatus();
+          if (parsedUser.has_shop) await checkShopStatus();
         }
       } catch (error) {
         console.error('Error reading token or user data:', error);
@@ -140,10 +136,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     setUser(null);
     setRepairman(null); 
     setShop(null)
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('user');
-    await AsyncStorage.removeItem('repairman');
-    await AsyncStorage.removeItem('shop')
+    await AsyncStorage.clear();
   };
 
   // Update user profile function
@@ -176,20 +169,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
    // Check repairman status function
    const checkRepairmanStatus = async () => {
     try {
+      const token = await AsyncStorage.getItem('userToken'); // Fetch token dynamically
+      console.log('Retrieved Token:', token); // Debugging
+  
+      if (!token) {
+        console.error('User token is missing.');
+        return;
+      }
+  
       const response = await fetch('http://10.0.2.2:3000/api/check-repairman', {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${userToken}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-
-      const data = await response.json();
-
+  
+      const text = await response.text(); // Read response as text first
+      console.log('Raw API Response:', text); // Log the raw response
+  
+      const data = JSON.parse(text);
+  
       if (data.repairman) {
-        setRepairman(data.repairman);
+        setShop(data.repairman);
         await AsyncStorage.setItem('repairman', JSON.stringify(data.repairman));
       } else {
-        setRepairman(null);
+        setShop(null);
         await AsyncStorage.removeItem('repairman');
       }
     } catch (error) {
@@ -202,32 +206,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     skills: string[];
     servicesProvided: string[];
     profilePicture?: string | null;
-  }) => {
+    phoneNumber: string; 
+}) => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/edit-repairman', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userToken}`,
-        },
-        body: JSON.stringify(repairmanData),
-      });
-  
-      const data = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update repairman profile');
+      const token = await AsyncStorage.getItem('userToken'); // Retrieve token dynamically
+      if (!token) {
+          console.error('No token found. User might be logged out.');
+          throw new Error('Authentication error: Token missing');
       }
-  
-      // Update the repairman state in the AuthProvider
+
+      const response = await fetch('http://10.0.2.2:3000/api/edit-repairman', {
+          method: 'PUT',
+          headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`, // Use retrieved token
+          },
+          body: JSON.stringify(repairmanData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+          throw new Error(data.error || 'Failed to update repairman.');
+      }
+
+      await checkRepairmanStatus();
+
+      // Update the repairman state
       setRepairman(data.repairman);
-  
-      return data;
-    } catch (error) {
-      console.error('Error updating repairman profile:', error);
+      await AsyncStorage.setItem('repairman', JSON.stringify(data.repairman));
+  } catch (error) {
+      console.error('Error updating repairman:', error);
       throw error;
-    }
-  };
+  }
+};
+
 
   // Change password function
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -329,14 +342,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
 
   const checkShopStatus = async () => {
     try {
+      const token = await AsyncStorage.getItem('userToken'); // Fetch token dynamically
+      console.log('Retrieved Token:', token); // Debugging
+  
+      if (!token) {
+        console.error('User token is missing.');
+        return;
+      }
+  
       const response = await fetch('http://10.0.2.2:3000/api/check-shop', {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${userToken}`,
+          Authorization: `Bearer ${token}`,
         },
       });
   
-      const data = await response.json();
+      const text = await response.text(); // Read response as text first
+      console.log('Raw API Response:', text); // Log the raw response
+  
+      const data = JSON.parse(text);
   
       if (data.shop) {
         setShop(data.shop);
@@ -349,6 +373,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
       console.error('Error checking shop status:', error);
     }
   };
+  
 
   const createShop = async (shopData: {
     shopName: string;
@@ -393,31 +418,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     shopServices: string[];
     phoneNumber?: string | null;
     photos: string[];
-  }) => {
+}) => {
     try {
-      const response = await fetch('http://10.0.2.2:3000/api/edit-shop', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userToken}`,
-        },
-        body: JSON.stringify(shopData),
-      });
+        const token = await AsyncStorage.getItem('userToken'); // Retrieve token dynamically
+        if (!token) {
+            console.error('No token found. User might be logged out.');
+            throw new Error('Authentication error: Token missing');
+        }
 
-      const data = await response.json();
+        const response = await fetch('http://10.0.2.2:3000/api/edit-shop', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`, // Use retrieved token
+            },
+            body: JSON.stringify(shopData),
+        });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update shop.');
-      }
+        const data = await response.json();
 
-      // Update the shop state
-      setShop(data.shop);
-      await AsyncStorage.setItem('shop', JSON.stringify(data.shop));
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to update shop.');
+        }
+
+        await checkShopStatus();
+
+        // Update the shop state
+        setShop(data.shop);
+        await AsyncStorage.setItem('shop', JSON.stringify(data.shop));
     } catch (error) {
-      console.error('Error updating shop:', error);
-      throw error;
+        console.error('Error updating shop:', error);
+        throw error;
     }
-  };
+};
+
 
   // Close shop function
   const closeShop = async () => {

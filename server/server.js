@@ -25,17 +25,28 @@ app.post('/api/register', async (req, res) => {
     // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the user
+    // Create the user with default role "customer"
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role: 'customer',
+        role: 'customer', // Default role
       },
     });
 
-    res.status(201).json({ message: 'User created successfully', user });
+    // Generate a JWT token immediately after registration
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+    );
+
+    res.status(201).json({ 
+      message: 'User created successfully', 
+      token, 
+      user 
+    });
+
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ error: 'An error occurred while creating the user' });
@@ -54,16 +65,29 @@ app.post('/api/login', async (req, res) => {
     // Validate password using bcrypt
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
+      console.error(`Login failed: Invalid password for ${email}`);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate a JWT token
+    // Generate a JWT token with expiration
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, has_shop: user.has_shop, is_repairman: user.is_repairman },
       JWT_SECRET,
     );
 
-    res.json({ message: 'Login successful', token, user });
+    // Return the token and necessary user details
+    res.json({ 
+      message: 'Login successful', 
+      token, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        has_shop: user.has_shop,
+        is_repairman: user.is_repairman,
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'An error occurred during login' });
@@ -194,22 +218,23 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
 
 // Check repairman status endpoint
 app.get('/api/check-repairman', verifyToken, async (req, res) => {
-  const userId = req.user.id;
-
   try {
-    const repairman = await prisma.repairman.findUnique({
-      where: { userId },
-      include: { user: true },
-    });
-
-    if (repairman) {
-      res.json({ isRepairman: true, repairman });
-    } else {
-      res.json({ isRepairman: false });
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized: User not found' });
     }
+
+    const repairman = await prisma.repairman.findFirst({ where: { userId: req.user.id } });
+
+    console.log('Repairman Data:', repairman);
+    
+    if (!repairman) {
+      return res.json({ repairman: null });
+    }
+
+    res.json({ repairman });
   } catch (error) {
-    console.error('Error checking repairman status:', error);
-    res.status(500).json({ error: 'An error occurred while checking repairman status.' });
+    console.error('Check repairman error:', error);
+    res.status(500).json({ error: 'Failed to check repairman status' });
   }
 });
 
@@ -219,32 +244,39 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // Check if the user is a repairman
-    const repairman = await prisma.repairman.findUnique({
-      where: { userId },
-    });
+    console.log(`Editing repairman for user: ${userId}`); // Debug log ✅
+
+    const repairman = await prisma.repairman.findUnique({ where: { userId } });
 
     if (!repairman) {
       return res.status(400).json({ error: 'User is not a repairman' });
     }
 
+    console.log('Existing repairman:', repairman);
+
     let isVerified = repairman.isVerified;
+
     if (phoneNumber && phoneNumber !== repairman.phoneNumber) {
       isVerified = false;
-      await sendVerificationCode(phoneNumber); // Send new verification code
+      await sendVerificationCode(phoneNumber);
     }
 
-    // Update the repairman profile
+    // 🔹 Ensure proper data format for skills & services
+    const updatedSkills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
+    const updatedServices = Array.isArray(servicesProvided) ? servicesProvided : servicesProvided.split(',').map(s => s.trim());
+
     const updatedRepairman = await prisma.repairman.update({
       where: { userId },
       data: {
-        skills,
-        servicesProvided,
-        profilePicture: profilePicture || null,
+        skills: updatedSkills,
+        servicesProvided: updatedServices,
+        profilePicture: profilePicture || repairman.profilePicture,
         phoneNumber: phoneNumber || repairman.phoneNumber,
         isVerified,
       },
     });
+
+    console.log('Updated repairman:', updatedRepairman);
 
     res.json({ message: 'Repairman profile updated successfully', repairman: updatedRepairman });
   } catch (error) {
@@ -252,6 +284,7 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'An error occurred while updating the repairman profile' });
   }
 });
+
 
 // Resign as repairman endpoint
 app.post('/api/resign-repairman', verifyToken, async (req, res) => {
@@ -282,6 +315,27 @@ app.post('/api/resign-repairman', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error resigning as repairman:', error);
     res.status(500).json({ error: 'An error occurred while processing your request.' });
+  }
+});
+
+app.get('/api/check-shop', verifyToken, async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Unauthorized: User not found' });
+    }
+
+    const shop = await prisma.shop.findFirst({ where: { ownerId: req.user.id } });
+
+    console.log('Shop Data:', shop);
+    
+    if (!shop) {
+      return res.json({ shop: null });
+    }
+
+    res.json({ shop });
+  } catch (error) {
+    console.error('Check shop error:', error);
+    res.status(500).json({ error: 'Failed to check shop status' });
   }
 });
 

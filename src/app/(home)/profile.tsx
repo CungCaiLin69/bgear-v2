@@ -142,7 +142,7 @@ const ProfilePage = () => {
         </TouchableOpacity>
 
         {/* Repairman Button */}
-        {repairman ? (
+        {user?.is_repairman ? (
           // If the user is already a repairman, show "Edit Repairman Profile" button
           <TouchableOpacity
             style={styles.becomeRepairmanButton}
@@ -161,7 +161,7 @@ const ProfilePage = () => {
         )}
 
         {/* Shop Button */}
-        {shop ? (
+        {user?.has_shop ? (
           // If the user has a shop, show "Edit Shop" button
           <TouchableOpacity
             style={styles.shopButton}

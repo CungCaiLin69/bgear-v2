@@ -18,10 +18,10 @@ const BecomeRepairmanForm = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const validateInputs = () => {
-    if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter your name.');
-      return false;
-    }
+    // if (!name.trim()) {
+    //   Alert.alert('Validation Error', 'Please enter your name.');
+    //   return false;
+    // }
     if (!skills.trim()) {
       Alert.alert('Validation Error', 'Please enter at least one skill.');
       return false;
@@ -69,12 +69,12 @@ const BecomeRepairmanForm = () => {
         <Image source={{ uri: profilePictureUrl }} style={styles.profilePicture} />
       )}
 
-      <TextInput
+      {/* <TextInput
         style={styles.input}
         placeholder="Name"
         value={name}
         onChangeText={setName}
-      />
+      /> */}
       <TextInput
         style={styles.input}
         placeholder="Skills (e.g. car, bike)"

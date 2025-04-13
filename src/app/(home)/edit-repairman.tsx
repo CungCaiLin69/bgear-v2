@@ -12,25 +12,25 @@ const EditRepairmanForm = () => {
   const profilePictureUrl = Array.isArray(profilePicture) ? profilePicture[0] : profilePicture;
 
   const [name, setName] = useState(user?.name || '');
-  const [skills, setSkills] = useState(repairman?.skills?.join(', ') || '');
-  const [servicesProvided, setServicesProvided] = useState(repairman?.servicesProvided?.join(', ') || '');
+  const [skills, setSkills] = useState(repairman?.skills.join(', ') || '');
+  const [servicesProvided, setServicesProvided] = useState(repairman?.servicesProvided.join(', ') || '');
   const [phoneNumber, setPhoneNumber] = useState(repairman?.phoneNumber || '');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (repairman) {
       setName(user?.name || '');
-      setSkills(repairman.skills?.join(', ') || '');
-      setServicesProvided(repairman.servicesProvided?.join(', ') || '');
-      setPhoneNumber(repairman.phoneNumber || '');
+      setSkills(repairman?.skills.join(', ') || '');
+      setServicesProvided(repairman?.servicesProvided.join(', ') || '');
+      setPhoneNumber(repairman?.phoneNumber || '');
     }
   }, [repairman]);
 
   const validateInputs = () => {
-    if (!name.trim()) {
-      Alert.alert('Validation Error', 'Please enter your name.');
-      return false;
-    }
+    // if (!name.trim()) {
+    //   Alert.alert('Validation Error', 'Please enter your name.');
+    //   return false;
+    // }
     if (!skills.trim()) {
       Alert.alert('Validation Error', 'Please enter at least one skill.');
       return false;
@@ -47,28 +47,31 @@ const EditRepairmanForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateInputs()) return;
+    if (!skills.trim() || !servicesProvided.trim() || !phoneNumber.trim()) {
+      Alert.alert('Validation Error', 'Please fill in all required fields.');
+      return;
+    }
+  
     setIsLoading(true);
-
+  
     try {
-      const repairmanData = {
+      await editRepairman({
         name,
-        skills: skills.split(',').map(s => s.trim()),
-        servicesProvided: servicesProvided.split(',').map(s => s.trim()),
-        profilePicture: profilePictureUrl || null,
+        skills: skills.split(',').map(skill => skill.trim()), // Convert to array
+        servicesProvided: servicesProvided.split(',').map(service => service.trim()), // Convert to array
         phoneNumber,
-      };
-
-      await editRepairman(repairmanData);
-      Alert.alert('Success', 'Repairman profile updated successfully!');
+      });
+  
+      Alert.alert('Success', 'Repairman updated successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error submitting form:', error);
-      Alert.alert('Error', 'Failed to update the profile. Please try again.');
+      console.error('Error updating repairman:', error);
+      Alert.alert('Error', 'Failed to update repairman. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const handleResign = async () => {
     try {
@@ -89,12 +92,12 @@ const EditRepairmanForm = () => {
         <Image source={{ uri: profilePictureUrl }} style={styles.profilePicture} />
       )}
 
-      <TextInput
+      {/* <TextInput
         style={styles.input}
         placeholder="Name"
         value={name}
         onChangeText={setName}
-      />
+      /> */}
       <TextInput
         style={styles.input}
         placeholder="Skills (e.g. car, bike)"
