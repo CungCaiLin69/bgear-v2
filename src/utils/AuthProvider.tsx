@@ -527,6 +527,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     }
   };
 
+  //Get all shop
+  const getAllShop = async () => {
+    try{
+      const response = await fetch('http://10.0.2.2:3000/api/get-all-shop', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        }
+      });
+
+      const data = await response.json();
+    } catch(error) {
+      console.error('Error getting shop', error);
+      throw error;
+    }
+  }
+
   return (
       <AuthContext.Provider
           value={{
