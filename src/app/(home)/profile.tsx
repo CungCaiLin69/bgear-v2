@@ -6,11 +6,12 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 const ProfilePage = () => {
-  const { user, repairman, shop, updateUser, changePassword } = useAuth();
+  const { user, updateUser, changePassword } = useAuth();
   const navigation = useNavigation();
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber)
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profilePicture, setProfilePicture] = useState(user?.profilePicture || null);
@@ -38,12 +39,13 @@ const ProfilePage = () => {
   const handleSaveChanges = async () => {
     try {
       const updatedUser = { 
-        ...user, // Spread existing user properties
-        name,    // Override name
-        email,   // Override email
-        profilePicture, // Override profilePicture
+        ...user, 
+        name,    
+        email,   
+        profilePicture, 
         has_shop: user?.has_shop || false,
         is_repairman: user?.is_repairman || false,
+        phoneNumber: phoneNumber || ''
       };
       await updateUser(updatedUser);
       Alert.alert('Success', 'Profile updated successfully.');
@@ -81,7 +83,6 @@ const ProfilePage = () => {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        {/* Back Button */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'Back'}</Text>
         </TouchableOpacity>
@@ -114,6 +115,18 @@ const ProfilePage = () => {
             onChangeText={setEmail}
             placeholder="Enter your email"
             keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            style={styles.input}
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            placeholder="Enter your phone number"
+            keyboardType="phone-pad"
             autoCapitalize="none"
           />
         </View>

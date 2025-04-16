@@ -13,76 +13,178 @@ app.use(express.json());
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, phoneNumber } = req.body;
 
   try {
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { phoneNumber }
+        ]
+      }
+    });
+    
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Hash the password before storing it
+    // Hash the password before storing
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create the user with default role "customer"
+    
+    // Create user with isVerified = false
     const user = await prisma.user.create({
       data: {
         email,
+        phoneNumber,
         password: hashedPassword,
         name,
-        role: 'customer', // Default role
+        role: 'customer',
+        isVerified: false,
       },
     });
 
-    // Generate a JWT token immediately after registration
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-    );
-
-    res.status(201).json({ 
-      message: 'User created successfully', 
-      token, 
-      user 
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP linked to the user
+    await prisma.oTP.create({
+      data: {
+        code: otp,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 5 * 60000) // 5 minutes
+      }
     });
 
+    console.log(`OTP for ${phoneNumber}: ${otp}`); // Simulated sending
+
+    res.status(200).json({ 
+      message: 'Please verify your phone number with the OTP', 
+      userId: user.id,
+      phoneNumber: phoneNumber
+    });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'An error occurred while creating the user' });
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request' });
   }
 });
 
-// Login endpoint that issues a JWT
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+// Create a new endpoint that creates a user after OTP verification
+app.post('/api/complete-registration', async (req, res) => {
+  const { userId, name, email, password, phoneNumber } = req.body;
+  
+  try {
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create the user with verified status
+    const user = await prisma.user.create({
+      data: {
+        email,
+        phoneNumber,
+        password: hashedPassword,
+        name,
+        role: 'customer',
+        isVerified: true,
+      },
+    });
+    
+    // Clean up the temporary OTP
+    await prisma.oTP.deleteMany({ where: { userId } });
+    
+    res.status(201).json({ 
+      message: 'Registration successful',
+      userId: user.id
+    });
+  } catch (error) {
+    console.error('Error completing registration:', error);
+    res.status(500).json({ error: 'Failed to complete registration' });
+  }
+});
+
+app.post('/api/verify-otp', async (req, res) => {
+  const { userId, otp } = req.body;
+
+  console.log('OTP verify request body:', req.body);
+
+  // Check if userId is provided
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing userId' });
+  }
 
   try {
-    // Retrieve user from database
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    const record = await prisma.oTP.findFirst({
+      where: {
+        userId,
+        code: otp,
+        expiresAt: {
+          gt: new Date()
+        }
+      }
+    });
 
-    // Validate password using bcrypt
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      console.error(`Login failed: Invalid password for ${email}`);
-      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!record) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    // Generate a JWT token with expiration
+    // Update the user to verified status
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isVerified: true }
+    });
+
+    // Clean up the OTP
+    await prisma.oTP.deleteMany({ where: { userId } });
+
+    res.status(200).json({ message: 'Phone number verified successfully' });
+  } catch (err) {
+    console.error('OTP verification error:', err);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  const { emailOrPhone, password } = req.body;
+
+  try {
+    // Match email or phone
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: emailOrPhone },
+          { phoneNumber: emailOrPhone } 
+        ]
+      }
+    });
+
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user.isVerified) return res.status(401).json({ error: 'Please verify your phone number first.' });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, has_shop: user.has_shop, is_repairman: user.is_repairman },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        has_shop: user.has_shop,
+        is_repairman: user.is_repairman,
+      },
       JWT_SECRET,
     );
 
-    // Return the token and necessary user details
-    res.json({ 
-      message: 'Login successful', 
-      token, 
+    res.json({
+      message: 'Login successful',
+      token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
+        phoneNumber: user.phoneNumber, 
         role: user.role,
         has_shop: user.has_shop,
         is_repairman: user.is_repairman,
@@ -90,7 +192,7 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'An error occurred during login' });
+    res.status(500).json({ error: 'An error occurred during login' });
   }
 });
 
@@ -99,7 +201,6 @@ const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ message: 'No token provided' });
 
-  // Expecting the header to be in the format "Bearer <token>"
   const token = authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ message: 'Token format invalid' });
 
@@ -114,7 +215,7 @@ const verifyToken = (req, res, next) => {
 
 // Update user profile endpoint
 app.put('/api/update-profile', verifyToken, async (req, res) => {
-  const { name, email } = req.body;
+  const { name, email, phoneNumber } = req.body;
   const userId = req.user.id;
 
   try {
@@ -126,10 +227,18 @@ app.put('/api/update-profile', verifyToken, async (req, res) => {
       }
     }
 
+    // Check if the new phone number is already taken by another user
+    if (phoneNumber) {
+      const existingUserByPhone = await prisma.user.findUnique({ where: { phoneNumber } });
+      if (existingUserByPhone && existingUserByPhone.id !== userId) {
+        return res.status(400).json({ error: 'Phone number is already in use' });
+      }
+    }
+
     // Update the user's profile
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { name, email },
+      data: { name, email, phoneNumber },
     });
 
     res.json({ message: 'Profile updated successfully', user: updatedUser });
