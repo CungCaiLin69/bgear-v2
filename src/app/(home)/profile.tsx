@@ -6,11 +6,12 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 const ProfilePage = () => {
-  const { user, repairman, shop, updateUser, changePassword } = useAuth();
+  const { user, logout, updateUser, changePassword } = useAuth();
   const navigation = useNavigation();
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber)
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profilePicture, setProfilePicture] = useState(user?.profilePicture || null);
@@ -38,12 +39,13 @@ const ProfilePage = () => {
   const handleSaveChanges = async () => {
     try {
       const updatedUser = { 
-        ...user, // Spread existing user properties
-        name,    // Override name
-        email,   // Override email
-        profilePicture, // Override profilePicture
+        ...user, 
+        name,    
+        email,   
+        profilePicture, 
         has_shop: user?.has_shop || false,
         is_repairman: user?.is_repairman || false,
+        phoneNumber: phoneNumber || ''
       };
       await updateUser(updatedUser);
       Alert.alert('Success', 'Profile updated successfully.');
@@ -78,10 +80,14 @@ const ProfilePage = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        {/* Back Button */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'Back'}</Text>
         </TouchableOpacity>
@@ -118,6 +124,18 @@ const ProfilePage = () => {
           />
         </View>
 
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            style={styles.input}
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            placeholder="Enter your phone number"
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+        </View>
+
         {/* Change Password */}
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Change Password</Text>
@@ -141,46 +159,12 @@ const ProfilePage = () => {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
 
-        {/* Repairman Button */}
-        {user?.is_repairman ? (
-          // If the user is already a repairman, show "Edit Repairman Profile" button
-          <TouchableOpacity
-            style={styles.becomeRepairmanButton}
-            onPress={() => router.push('/(home)/edit-repairman')}
-          >
-            <Text style={styles.becomeRepairmanButtonText}>Edit Repairman Profile</Text>
-          </TouchableOpacity>
-        ) : (
-          // If the user is not a repairman, show "Become a Repairman" button
-          <TouchableOpacity
-            style={styles.becomeRepairmanButton}
-            onPress={() => router.push('/(home)/create-repairman')}
-          >
-            <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Shop Button */}
-        {user?.has_shop ? (
-          // If the user has a shop, show "Edit Shop" button
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => router.push('/(home)/edit-shop')}
-          >
-            <Text style={styles.shopButtonText}>Edit Shop</Text>
-          </TouchableOpacity>
-        ) : (
-          // If the user doesn't have a shop, show "Open a Shop" button
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => router.push('/(home)/create-shop')}
-          >
-            <Text style={styles.shopButtonText}>Open a Shop</Text>
-          </TouchableOpacity>
-        )}
-
         <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
           <Text style={styles.changePasswordButtonText}>Change Password</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -255,26 +239,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  becomeRepairmanButton: {
-    backgroundColor: '#007BFF',
+  logoutButton: {
+    marginTop: 20,
     padding: 15,
+    backgroundColor: '#dc3545',
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 10,
   },
-  becomeRepairmanButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  shopButton: {
-    backgroundColor: '#FFA500',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  shopButtonText: {
+  logoutButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

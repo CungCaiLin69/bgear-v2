@@ -13,13 +13,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model OTP {
+  id        String   @id @default(cuid())
+  code      String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+}
+
 model User {
   id             String   @id @default(uuid())
   email          String   @unique
   password       String? // Nullable for OAuth users
   name           String
   profilePicture String?
-  phoneNumber    String? // nullable until verified
+  phoneNumber    String?  @unique // nullable until verified
+  isVerified     Boolean  @default(false)
   provider       String   @default("local") // "local" for email/password, "google" for OAuth
   role           String   @default("customer")
   has_shop       Boolean  @default(false)
@@ -33,6 +42,8 @@ model User {
   Bookings  Booking[]
   Orders    Order[]
   Reviews   Review[]
+
+  OTP OTP[]
 }
 
 model Shop {
@@ -42,7 +53,7 @@ model Shop {
   photos      String[]
   services    String[]
   location    String
-  phoneNumber String? // nullable until verified
+  phoneNumber String?  @unique // nullable until verified
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -58,7 +69,7 @@ model Repairman {
   skills           String[] // Skills (e.g., ["car repair", "bike repair"])
   servicesProvided String[] // Services provided (e.g., ["tire change", "oil change"])
   profilePicture   String? // URL for the profile picture (nullable)
-  phoneNumber      String? // nullable until verified
+  phoneNumber      String?  @unique // nullable until verified
   isVerified       Boolean  @default(false) // Add this field to track verification status
   isAvailable      Boolean  @default(true)
   currentLocation  String? // Store as GeoJSON or use PostGIS (nullable)

@@ -8,7 +8,7 @@ export type User = {
   name: string;
   profilePicture?: string | null; // Allow null values
   role?: string; // customer, repairman, shop_owner
-  // phoneNumber: string;
+  phoneNumber: string;
   has_shop: boolean;
   is_repairman: boolean;
 };
@@ -36,9 +36,9 @@ export type Shop = {
   phoneNumber?: string;
 };
 
-// Define the AuthContext type
 export type AuthContextType = {
   userToken: string | null;
+  verifyOtp: (phoneNumber: string, otp: string) => Promise<boolean>;
   user: User | null;
   repairman: Repairman | null;
   shop: Shop | null;
@@ -51,7 +51,7 @@ export type AuthContextType = {
     servicesProvided: string[];
     profilePicture?: string | null;
     phoneNumber: string
-  }) => Promise<void>; // Add this
+  }) => Promise<void>; 
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   isLoading: boolean;
   becomeRepairman: (repairmanData: {
@@ -139,6 +139,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
     await AsyncStorage.clear();
   };
 
+  const verifyOtp = async (phoneNumber: string, otp: string): Promise<boolean> => {
+    try {
+      const response = await fetch('http://10.0.2.2:3000/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, otp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'OTP verification failed');
+      }
+
+      if (data.token && data.user) {
+        await login(data.token, data.user);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('OTP verification failed:', error);
+      return false;
+    }
+  };
+
   // Update user profile function
   const updateUser = async (updatedUser: User) => {
     try {
@@ -150,16 +175,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         },
         body: JSON.stringify(updatedUser),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(data.error || 'Failed to update profile');
       }
-
-      // Update the user in the AuthProvider state
-      setUser(updatedUser);
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+  
+      const newUser = data.user; // ✅ Use updated user from backend response
+  
+      // ✅ Update the user in the AuthProvider state and storage
+      setUser(newUser);
+      await AsyncStorage.setItem('user', JSON.stringify(newUser));
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -184,8 +211,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         },
       });
   
-      const text = await response.text(); // Read response as text first
-      console.log('Raw API Response:', text); // Log the raw response
+      const text = await response.text(); 
+      console.log('Raw API Response:', text); 
   
       const data = JSON.parse(text);
   
@@ -487,6 +514,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
       <AuthContext.Provider
           value={{
             userToken,
+            verifyOtp,
             user,
             repairman,
             shop,

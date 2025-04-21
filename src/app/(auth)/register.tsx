@@ -11,12 +11,13 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleRegister() {
     // Validate input fields
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phoneNumber) {
       Alert.alert('Validation Error', 'Please fill in all fields.');
       return;
     }
@@ -28,6 +29,12 @@ export default function RegisterScreen() {
       return;
     }
 
+    //validate phone format
+    if (!/^\+?\d{10,15}$/.test(phoneNumber)) {
+      Alert.alert('Validation Error', 'Invalid phone number.');
+      return;
+    }
+
     // Validate password length
     if (password.length < 6) {
       Alert.alert('Validation Error', 'Password must be at least 6 characters long.');
@@ -36,32 +43,38 @@ export default function RegisterScreen() {
 
     setLoading(true);
 
-    try {
-      // Send registration request to the backend
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
+  try {
+    // Send registration request to the backend
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, phoneNumber }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      // Handle backend errors
-      if (!response.ok) {
-        Alert.alert('Registration Failed', data.error || 'An error occurred during registration.');
-        return;
-      }
-
-      // Registration successful
-      Alert.alert('Registration Successful', 'You can now login.');
-      router.replace('/(auth)/login'); // Redirect to the login screen
-    } catch (error) {
-      console.error('Error during registration:', error);
-      Alert.alert('Registration Error', 'Network error, please try again.');
-    } finally {
-      setLoading(false);
+    // Handle backend errors
+    if (!response.ok) {
+      Alert.alert('Registration Failed', data.error || 'An error occurred during registration.');
+      return;
     }
+
+    // Pass the userId and phoneNumber to the OTP screen
+    router.push({
+      pathname: '/(auth)/otp-verify',
+      params: { 
+        userId: data.userId, 
+        phoneNumber: data.phoneNumber
+      }
+    });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    Alert.alert('Registration Error', 'Network error, please try again.');
+  } finally {
+    setLoading(false);
   }
+}
+  
 
   return (
     <View style={styles.container}>
@@ -84,6 +97,15 @@ export default function RegisterScreen() {
           placeholder="email@address.com"
           autoCapitalize="none"
           keyboardType="email-address"
+        />
+      </View>
+      <View style={[styles.verticallySpaced, styles.mt10]}>
+        <Input
+          label="Phone Number"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          placeholder="+62123456789"
+          keyboardType="phone-pad"
         />
       </View>
       <View style={[styles.verticallySpaced, styles.mt10]}>
