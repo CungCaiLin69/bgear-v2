@@ -35,3 +35,5 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+bgear-dab38-firebase-adminsdk-fbsvc-c7114eca06.json

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Input, Icon } from '@rneui/themed';
 import { Link, useRouter } from 'expo-router';
-import { useAuth } from '../../utils/AuthProvider'; // Adjust path if necessary
+import { useAuth } from '../../utils/AuthProvider'; 
 
 const API_URL = 'http://10.0.2.2:3000/api/login'; 
 

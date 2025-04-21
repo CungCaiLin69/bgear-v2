@@ -36,7 +36,6 @@ export type Shop = {
   phoneNumber?: string;
 };
 
-// Define the AuthContext type
 export type AuthContextType = {
   userToken: string | null;
   verifyOtp: (phoneNumber: string, otp: string) => Promise<boolean>;
@@ -52,7 +51,7 @@ export type AuthContextType = {
     servicesProvided: string[];
     profilePicture?: string | null;
     phoneNumber: string
-  }) => Promise<void>; // Add this
+  }) => Promise<void>; 
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   isLoading: boolean;
   becomeRepairman: (repairmanData: {
@@ -154,7 +153,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         throw new Error(data.error || 'OTP verification failed');
       }
 
-      // Optional: Store token and user if returned
       if (data.token && data.user) {
         await login(data.token, data.user);
       }
@@ -213,8 +211,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         },
       });
   
-      const text = await response.text(); // Read response as text first
-      console.log('Raw API Response:', text); // Log the raw response
+      const text = await response.text(); 
+      console.log('Raw API Response:', text); 
   
       const data = JSON.parse(text);
   

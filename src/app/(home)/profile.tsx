@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 const ProfilePage = () => {
-  const { user, updateUser, changePassword } = useAuth();
+  const { user, logout, updateUser, changePassword } = useAuth();
   const navigation = useNavigation();
 
   const [name, setName] = useState(user?.name || '');
@@ -78,6 +78,11 @@ const ProfilePage = () => {
         Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       }
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
   };
 
   return (
@@ -154,46 +159,12 @@ const ProfilePage = () => {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
 
-        {/* Repairman Button */}
-        {user?.is_repairman ? (
-          // If the user is already a repairman, show "Edit Repairman Profile" button
-          <TouchableOpacity
-            style={styles.becomeRepairmanButton}
-            onPress={() => router.push('/(home)/edit-repairman')}
-          >
-            <Text style={styles.becomeRepairmanButtonText}>Edit Repairman Profile</Text>
-          </TouchableOpacity>
-        ) : (
-          // If the user is not a repairman, show "Become a Repairman" button
-          <TouchableOpacity
-            style={styles.becomeRepairmanButton}
-            onPress={() => router.push('/(home)/create-repairman')}
-          >
-            <Text style={styles.becomeRepairmanButtonText}>Become a Repairman</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Shop Button */}
-        {user?.has_shop ? (
-          // If the user has a shop, show "Edit Shop" button
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => router.push('/(home)/edit-shop')}
-          >
-            <Text style={styles.shopButtonText}>Edit Shop</Text>
-          </TouchableOpacity>
-        ) : (
-          // If the user doesn't have a shop, show "Open a Shop" button
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => router.push('/(home)/create-shop')}
-          >
-            <Text style={styles.shopButtonText}>Open a Shop</Text>
-          </TouchableOpacity>
-        )}
-
         <TouchableOpacity style={styles.changePasswordButton} onPress={handleChangePassword}>
           <Text style={styles.changePasswordButtonText}>Change Password</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -268,26 +239,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  becomeRepairmanButton: {
-    backgroundColor: '#007BFF',
+  logoutButton: {
+    marginTop: 20,
     padding: 15,
+    backgroundColor: '#dc3545',
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 10,
   },
-  becomeRepairmanButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  shopButton: {
-    backgroundColor: '#FFA500',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  shopButtonText: {
+  logoutButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

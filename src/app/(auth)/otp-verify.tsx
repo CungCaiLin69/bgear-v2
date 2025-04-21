@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StyleSheet
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 
@@ -50,36 +51,110 @@ export default function OTPVerificationScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 justify-center items-center bg-white px-6"
+      className="flex-1 bg-white px-6"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.verifyLayout}
     >
-      <Text className="text-2xl font-bold text-gray-800 mb-2">Enter OTP</Text>
-      <Text className="text-gray-500 text-sm mb-6">
-        We've sent a 6-digit code to {phoneNumber}
-      </Text>
-      <TextInput
-        className="w-full border border-gray-300 rounded-xl px-4 py-3 text-center text-lg tracking-widest mb-6"
-        keyboardType="numeric"
-        maxLength={6}
-        value={otp}
-        onChangeText={setOtp}
-        placeholder="●●●●●●"
-        placeholderTextColor="#ccc"
-      />
-      <TouchableOpacity
-        className={`w-full bg-blue-600 py-3 rounded-xl ${
-          loading ? 'opacity-50' : ''
-        }`}
-        disabled={loading}
-        onPress={handleVerifyOTP}
-      >
-        <Text className="text-white text-center text-lg font-semibold">
-          {loading ? 'Verifying...' : 'Verify'}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.goBack()} className="mt-4">
-        <Text className="text-blue-600 font-semibold">Back</Text>
-      </TouchableOpacity>
+      <View style={styles.innerContainer}>
+        <Text style={styles.phoneVerification}>Verify Your Number</Text>
+        <Text style={styles.verificationText}>We need to register your phone number before getting started</Text>
+        <Text style={styles.verificationNum}>We've sent a 6-digit code to {phoneNumber}</Text>
+        <TextInput
+          keyboardType="numeric"
+          maxLength={6}
+          value={otp}
+          onChangeText={setOtp}
+          placeholder="●●●●●●"
+          placeholderTextColor="#ccc"
+          style={styles.verificationBox}
+        />
+      </View>
+  
+      <View style={styles.footerContainer}>
+        <TouchableOpacity
+          disabled={loading}
+          onPress={handleVerifyOTP}
+          style={[styles.verifyButton, loading && { opacity: 0.5 }]}
+        >
+          <Text style={styles.verifyButtonText}>
+            {loading ? 'Verifying...' : 'Verify'}
+          </Text>
+        </TouchableOpacity>
+  
+        <View style={styles.subButton}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity>
+            <Text style={styles.backButton}>Resend OTP</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
+  
+const styles = StyleSheet.create({
+    verifyLayout: {
+      flex: 1,
+      justifyContent: 'space-between',
+    },
+    innerContainer: {
+      paddingTop: 100,
+      alignItems: 'center',
+    },
+    phoneVerification: {
+      fontSize: 30,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginTop: 120
+    },
+    verificationText: {
+      marginTop: 20,
+      textAlign: 'center',
+      width: '80%',
+    },
+    verificationNum: {
+      textAlign: 'center',
+      marginTop: 30,
+      marginBottom: 10,
+    },
+    verificationBox: {
+      backgroundColor: "#EEE",
+      borderRadius: 20,
+      height: 50,
+      paddingHorizontal: 20,
+      textAlign: 'center',
+      width: '80%',
+      marginTop: 20,
+    },
+    footerContainer: {
+      alignItems: 'center',
+      paddingBottom: 40,
+    },
+    verifyButton: {
+      borderRadius: 20,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      backgroundColor: '#00897B',
+      width: '80%',
+      alignItems: 'center',
+    },
+    verifyButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 16,
+    },
+    subButton: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '80%',
+      marginTop: 12,
+    },
+    backButton: {
+      color: '#00897B',
+      fontWeight: '600',
+      fontSize: 14,
+      marginBottom: 20
+    },
+});
