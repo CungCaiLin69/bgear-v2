@@ -90,7 +90,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
   const [repairman, setRepairman] = useState<Repairman | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Check if the user is logged in on app startup
   useEffect(() => {
     const checkTokenAndUser = async () => {
       try {
@@ -98,12 +97,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         const userData = await AsyncStorage.getItem('user');
         const repairmanData = await AsyncStorage.getItem('repairman');
         const shopData = await AsyncStorage.getItem('shop');
+        
         if (token && userData) {
-           const parsedUser: User = JSON.parse(userData);
+          const parsedUser: User = JSON.parse(userData);
           setUserToken(token);
           setUser(parsedUser);
-          if (parsedUser.is_repairman) await checkRepairmanStatus();
-          if (parsedUser.has_shop) await checkShopStatus();
+          
+          // Directly set repairman from storage first
+          if (repairmanData) {
+            setRepairman(JSON.parse(repairmanData));
+          }
+          
+          // Then refresh from API if needed
+          if (parsedUser.is_repairman) {
+            await checkRepairmanStatus();
+          }
+          
+          if (shopData) {
+            setShop(JSON.parse(shopData));
+          }
+          
+          if (parsedUser.has_shop) {
+            await checkShopStatus();
+          }
         }
       } catch (error) {
         console.error('Error reading token or user data:', error);
@@ -111,7 +127,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         setIsLoading(false);
       }
     };
-
+  
     checkTokenAndUser();
   }, []);
 
@@ -196,8 +212,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
    // Check repairman status function
    const checkRepairmanStatus = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken'); // Fetch token dynamically
-      console.log('Retrieved Token:', token); // Debugging
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('Retrieved Token:', token);
   
       if (!token) {
         console.error('User token is missing.');
@@ -211,16 +227,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         },
       });
   
-      const text = await response.text(); 
-      console.log('Raw API Response:', text); 
+      const text = await response.text();
+      console.log('Raw API Response:', text);
   
       const data = JSON.parse(text);
   
       if (data.repairman) {
-        setShop(data.repairman);
+        // Changed from setShop to setRepairman
+        setRepairman(data.repairman);
         await AsyncStorage.setItem('repairman', JSON.stringify(data.repairman));
       } else {
-        setShop(null);
+        setRepairman(null);
         await AsyncStorage.removeItem('repairman');
       }
     } catch (error) {

@@ -1,32 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Alert, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, Alert, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { Input, Button } from '@rneui/themed';
 import { useAuth } from '../../utils/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import MultiSelect from 'react-native-multiple-select';
+import AddressAutocomplete from '@/src/components/AddressAutocomplete';
+
+const SERVICE_OPTIONS = [
+  { id: 'car', name: 'Car Repair' },
+  { id: 'bike', name: 'Bicycle Repair' },
+  { id: 'motorcycle', name: 'Motorcycle Repair' },
+  { id: 'gundam', name: 'Gundam Repair' },
+];
 
 const EditShopScreen = () => {
   const navigation = useNavigation();
-  const { user, shop, editShop } = useAuth();
+  const { user, shop, editShop, closeShop } = useAuth();
 
   // State for shop details
   const [shopName, setShopName] = useState(shop?.name || '');
   const [shopLocation, setShopLocation] = useState(shop?.location || '');
-  const [shopServices, setShopServices] = useState<string[]>(shop?.services || []);
+  const [locationData, setLocationData] = useState<{
+      address: string;
+      latitude: number;
+      longitude: number;
+    } | null>(null);
+  const [selectedServices, setSelectedServices] = useState<string[]>(shop?.services || []);
   const [phoneNumber, setPhoneNumber] = useState(shop?.phoneNumber || '');
-  const [photos, setPhotos] = useState<string[]>(shop?.photos || []); // Store image URIs
+  const [photos, setPhotos] = useState<string[]>(shop?.photos || []); 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Pre-fill form with shop data
   useEffect(() => {
     if (shop) {
-      setShopName(shop?.name);
-      setShopLocation(shop?.location);
-      setShopServices(shop?.services);
-      setPhoneNumber(shop?.phoneNumber || '');
-      setPhotos(shop?.photos || []);
+      setShopName(shop.name || '');
+      setShopLocation(shop.location || '');
+      setSelectedServices(shop.services || []);
+      setPhoneNumber(shop.phoneNumber || '');
+      setPhotos(shop.photos || []);
     }
   }, [shop]);
+
+  const handleSelectedServicesChange = (selectedItems: string[]) => {
+    setSelectedServices(selectedItems);
+  };
 
   // Handle image selection
   const handleSelectImages = async () => {
@@ -59,7 +76,7 @@ const EditShopScreen = () => {
 
   // Handle shop update
   const handleEditShop = async () => {
-    if (!shopName || !shopLocation || shopServices.length === 0) {
+    if (!shopName || !shopLocation || selectedServices.length === 0) {
       Alert.alert('Validation Error', 'Please fill in all required fields.');
       return;
     }
@@ -70,13 +87,12 @@ const EditShopScreen = () => {
       await editShop({
         shopName,
         shopLocation,
-        shopServices,
+        shopServices: selectedServices,
         phoneNumber,
         photos,
       });
 
       Alert.alert('Success', 'Shop updated successfully!');
-      // router.replace('/(seller)/manage-shop'); // Redirect to the shop management page
       navigation.goBack();
     } catch (error) {
       console.error('Error updating shop:', error);
@@ -86,78 +102,148 @@ const EditShopScreen = () => {
     }
   };
 
+  const handleCloseShop = () => {
+    Alert.alert(
+      'Close Shop',
+      'Are you sure you want to close your shop? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Close Shop', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await closeShop();
+              Alert.alert('Success', 'Your shop has been closed successfully.');
+              navigation.goBack();
+            } catch (error) {
+              console.error('Error closing shop:', error);
+              Alert.alert('Error', 'Failed to close shop. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Edit Your Shop</Text>
-
-      <Input
-        label="Shop Name"
-        value={shopName}
-        onChangeText={setShopName}
-        placeholder="Enter your shop name"
-      />
-
-      <Input
-        label="Shop Location"
-        value={shopLocation}
-        onChangeText={setShopLocation}
-        placeholder="Enter your shop location"
-      />
-
-      <Input
-        label="Services (comma-separated)"
-        value={shopServices.join(', ')}
-        onChangeText={(text) => setShopServices(text.split(',').map((s) => s.trim()))}
-        placeholder="e.g., Gundam Repair, Bike Repair"
-      />
-
-      <Input
-        label="Phone Number"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        placeholder="Enter your shop phone number"
-        keyboardType="phone-pad"
-      />
-
-      {/* Image Upload Section */}
-      <View style={styles.imageUploadContainer}>
-        <Text style={styles.label}>Upload Photos (Max 10)</Text>
-        <TouchableOpacity style={styles.uploadButton} onPress={handleSelectImages}>
-          <Text style={styles.uploadButtonText}>Select Images</Text>
-        </TouchableOpacity>
-
-        {/* Display Selected Images */}
-        <FlatList
-          data={photos}
-          keyExtractor={(item, index) => index.toString()}
-          numColumns={3} // Display images in a grid
-          renderItem={({ item, index }) => (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: item }} style={styles.selectedImage} />
-              <TouchableOpacity
-                style={styles.removeImageButton}
-                onPress={() => handleRemoveImage(index)}
-              >
-                <Text style={styles.removeImageButtonText}>×</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <FlatList
+        data={[]} 
+        keyExtractor={() => "dummy"}
+        renderItem={null}
+        ListHeaderComponent={() => (
+          <View style={[styles.container, { flex: 1 }]}>
+            <Text style={styles.title}>Shop Dashboard</Text>
+  
+            <Text style={styles.label}>Shop Name</Text>
+            <TextInput
+              style={styles.shopBox}
+              value={shopName}
+              onChangeText={setShopName}
+              placeholder="Enter your shop name"
+            />
+  
+            <Text style={styles.label}>Shop Location</Text>
+            <AddressAutocomplete
+              value={shopLocation}
+              onSelect={(label, coords) => {
+                setShopLocation(label);
+                setLocationData({
+                  address: label,
+                  latitude: parseFloat(coords.lat),
+                  longitude: parseFloat(coords.lon)
+                });
+              }}
+              apiKey="pk.95ff82ac779b33e03418197e365fd8b6"
+            />
+  
+            <Text style={styles.label}>Shop Services</Text>
+            <MultiSelect
+              items={SERVICE_OPTIONS}
+              uniqueKey="id"
+              onSelectedItemsChange={handleSelectedServicesChange}
+              selectedItems={selectedServices}
+              selectText="Select Services"
+              searchInputPlaceholderText="Search Services..."
+              tagRemoveIconColor="#CCC"
+              tagBorderColor="#CCC"
+              tagTextColor="#333"
+              selectedItemTextColor="#333"
+              selectedItemIconColor="#333"
+              itemTextColor="#000"
+              displayKey="name"
+              searchInputStyle={{ color: '#333' }}
+              submitButtonColor="#00897B"
+              submitButtonText="Done"
+              styleMainWrapper={styles.multiSelect}
+            />
+  
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={styles.shopBox}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="Enter your shop phone number"
+              keyboardType="phone-pad"
+            />
+  
+            {/* Image Upload Section */}
+            <View style={styles.imageUploadContainer}>
+              <Text style={styles.label}>Upload Photos (Max 10)</Text>
+              <TouchableOpacity style={styles.uploadButton} onPress={handleSelectImages}>
+                <Text style={styles.uploadButtonText}>Select Images</Text>
               </TouchableOpacity>
             </View>
-          )}
-        />
-      </View>
+  
+            {/* Display photos grid */}
+            <View style={styles.photosGrid}>
+              {photos.map((photoUri, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri: photoUri }} style={styles.selectedImage} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => handleRemoveImage(index)}
+                  >
+                    <Text style={styles.removeImageButtonText}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+  
+            {/* Push buttons to bottom */}
+            <View style={{ marginTop: 'auto' }}>
+              <Button
+                title={isLoading ? 'Editing...' : 'Edit'}
+                onPress={handleEditShop}
+                disabled={isLoading}
+                buttonStyle={styles.button}
+              />
 
-      <Button
-        title={isLoading ? 'Updating Shop...' : 'Update Shop'}
-        onPress={handleEditShop}
-        disabled={isLoading}
-        buttonStyle={styles.button}
+              <TouchableOpacity 
+                onPress={handleCloseShop} 
+                style={styles.closeShopButton}
+                disabled={isLoading}
+              >
+                <Text style={styles.closeShopButtonText}>Close Shop</Text>
+              </TouchableOpacity>
+  
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.submitButton}>
+                <Text style={styles.submitButtonText}>{'Cancel'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       />
-
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.submitButton}>
-        <Text style={styles.submitButtonText}>{'Cancel'}</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-};
+    </KeyboardAvoidingView>
+  );  
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -170,6 +256,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    marginTop: 30
   },
   button: {
     backgroundColor: '#00897B',
@@ -178,11 +265,6 @@ const styles = StyleSheet.create({
   },
   imageUploadContainer: {
     marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
   },
   uploadButton: {
     backgroundColor: '#007BFF',
@@ -233,6 +315,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  multiSelect: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    elevation: 2,
+    padding: 8,
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginVertical: 10,
+  },
+  shopBox: {
+    borderWidth: 1,
+    borderColor: 'gray',
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    height: 50,
+    paddingHorizontal: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00897B',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    marginTop: 20
+  },
+  closeShopButton: {
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 10
+  },
+  closeShopButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  }
 });
 
 export default EditShopScreen;
