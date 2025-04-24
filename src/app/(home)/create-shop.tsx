@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, Alert, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, Alert, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { Input, Button } from '@rneui/themed';
 import { useAuth } from '../../utils/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import MultiSelect from 'react-native-multiple-select';
+import AddressAutocomplete from '@/src/components/AddressAutocomplete';
+
+const SERVICE_OPTIONS = [
+  { id: 'car', name: 'Car Repair' },
+  { id: 'bike', name: 'Bicycle Repair' },
+  { id: 'motorcycle', name: 'Motorcycle Repair' },
+  { id: 'gundam', name: 'Gundam Repair' },
+];
 
 const CreateShopScreen = () => {
   const navigation = useNavigation();
@@ -12,10 +21,19 @@ const CreateShopScreen = () => {
   // State for shop details
   const [shopName, setShopName] = useState('');
   const [shopLocation, setShopLocation] = useState('');
-  const [shopServices, setShopServices] = useState<string[]>([]);
+  const [locationData, setLocationData] = useState<{
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [photos, setPhotos] = useState<string[]>([]); // Store image URIs
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleSelectedServicesChange = (selectedItems: string[]) => {
+    setSelectedServices(selectedItems);
+  };
 
   // Handle image selection
   const handleSelectImages = async () => {
@@ -46,9 +64,27 @@ const CreateShopScreen = () => {
     setPhotos((prevPhotos) => prevPhotos.filter((_, i) => i !== index));
   };
 
+  const handleLocationSelect = (item: any) => {
+    setShopLocation(item.description);
+    setLocationData({
+      address: item.description,
+      latitude: item.lat,
+      longitude: item.lon
+    });
+  };
+
+  // Toggle service selection
+  const toggleService = (service: any) => {
+    if (selectedServices.includes(service)) {
+      setSelectedServices(selectedServices.filter(item => item !== service));
+    } else {
+      setSelectedServices([...selectedServices, service]);
+    }
+  };
+
   // Handle shop creation
   const handleCreateShop = async () => {
-    if (!shopName || !shopLocation || shopServices.length === 0) {
+    if (!shopName || !shopLocation || selectedServices.length === 0) {
       Alert.alert('Validation Error', 'Please fill in all required fields.');
       return;
     }
@@ -59,7 +95,7 @@ const CreateShopScreen = () => {
       await createShop({
         shopName,
         shopLocation,
-        shopServices,
+        shopServices: selectedServices,
         phoneNumber,
         photos,
       });
@@ -76,77 +112,112 @@ const CreateShopScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Open a Shop</Text>
-
-      <Input
-        label="Shop Name"
-        value={shopName}
-        onChangeText={setShopName}
-        placeholder="Enter your shop name"
-      />
-
-      <Input
-        label="Shop Location"
-        value={shopLocation}
-        onChangeText={setShopLocation}
-        placeholder="Enter your shop location"
-      />
-
-      <Input
-        label="Services (comma-separated)"
-        value={shopServices.join(', ')}
-        onChangeText={(text) => setShopServices(text.split(',').map((s) => s.trim()))}
-        placeholder="e.g., Gundam Repair, Bike Repair"
-      />
-
-      <Input
-        label="Phone Number"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        placeholder="Enter your shop phone number"
-        keyboardType="phone-pad"
-      />
-
-      {/* Image Upload Section */}
-      <View style={styles.imageUploadContainer}>
-        <Text style={styles.label}>Upload Photos (Max 10)</Text>
-        <TouchableOpacity style={styles.uploadButton} onPress={handleSelectImages}>
-          <Text style={styles.uploadButtonText}>Select Images</Text>
-        </TouchableOpacity>
-
-        {/* Display Selected Images */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <FlatList
-          data={photos}
-          keyExtractor={(item, index) => index.toString()}
-          numColumns={3} // Display images in a grid
-          renderItem={({ item, index }) => (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: item }} style={styles.selectedImage} />
-              <TouchableOpacity
-                style={styles.removeImageButton}
-                onPress={() => handleRemoveImage(index)}
-              >
-                <Text style={styles.removeImageButtonText}>×</Text>
-              </TouchableOpacity>
+          data={[]} 
+          keyExtractor={() => "dummy"}
+          renderItem={null}
+          ListHeaderComponent={() => (
+            <View style={[styles.container, { flex: 1 }]}>
+              <Text style={styles.title}>Shop Dashboard</Text>
+    
+              <Text style={styles.label}>Shop Name</Text>
+              <TextInput
+                style={styles.shopBox}
+                value={shopName}
+                onChangeText={setShopName}
+                placeholder="Enter your shop name"
+              />
+    
+              <Text style={styles.label}>Shop Location</Text>
+              <AddressAutocomplete
+                value={shopLocation}
+                onSelect={(label, coords) => {
+                  setShopLocation(label);
+                  setLocationData({
+                    address: label,
+                    latitude: parseFloat(coords.lat),
+                    longitude: parseFloat(coords.lon)
+                  });
+                }}
+                apiKey="pk.95ff82ac779b33e03418197e365fd8b6"
+              />
+    
+              <Text style={styles.label}>Shop Services</Text>
+              <MultiSelect
+                items={SERVICE_OPTIONS}
+                uniqueKey="id"
+                onSelectedItemsChange={handleSelectedServicesChange}
+                selectedItems={selectedServices}
+                selectText="Select Services"
+                searchInputPlaceholderText="Search Services..."
+                tagRemoveIconColor="#CCC"
+                tagBorderColor="#CCC"
+                tagTextColor="#333"
+                selectedItemTextColor="#333"
+                selectedItemIconColor="#333"
+                itemTextColor="#000"
+                displayKey="name"
+                searchInputStyle={{ color: '#333' }}
+                submitButtonColor="#00897B"
+                submitButtonText="Done"
+                styleMainWrapper={styles.multiSelect}
+              />
+    
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.shopBox}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Enter your shop phone number"
+                keyboardType="phone-pad"
+              />
+    
+              {/* Image Upload Section */}
+              <View style={styles.imageUploadContainer}>
+                <Text style={styles.label}>Upload Photos (Max 10)</Text>
+                <TouchableOpacity style={styles.uploadButton} onPress={handleSelectImages}>
+                  <Text style={styles.uploadButtonText}>Select Images</Text>
+                </TouchableOpacity>
+              </View>
+    
+              {/* Display photos grid */}
+              <View style={styles.photosGrid}>
+                {photos.map((photoUri, index) => (
+                  <View key={index} style={styles.imageContainer}>
+                    <Image source={{ uri: photoUri }} style={styles.selectedImage} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => handleRemoveImage(index)}
+                    >
+                      <Text style={styles.removeImageButtonText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+    
+              {/* Push buttons to bottom */}
+              <View style={{ marginTop: 'auto' }}>
+                <Button
+                  title={isLoading ? 'Opening...' : 'Open Shop'}
+                  onPress={handleCreateShop}
+                  disabled={isLoading}
+                  buttonStyle={styles.button}
+                />
+    
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.submitButton}>
+                  <Text style={styles.submitButtonText}>{'Cancel'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         />
-      </View>
-
-      <Button
-        title={isLoading ? 'Creating Shop...' : 'Create Shop'}
-        onPress={handleCreateShop}
-        disabled={isLoading}
-        buttonStyle={styles.button}
-      />
-
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.submitButton}>
-        <Text style={styles.submitButtonText}>{'Cancel'}</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-};
+      </KeyboardAvoidingView>
+    );  
+  }
 
 const styles = StyleSheet.create({
   container: {
@@ -159,6 +230,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    marginTop: 30
   },
   button: {
     backgroundColor: '#00897B',
@@ -171,6 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 10,
+    marginTop: 10
   },
   submitButtonText: {
     color: '#fff',
@@ -179,11 +252,6 @@ const styles = StyleSheet.create({
   },
   imageUploadContainer: {
     marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
   },
   uploadButton: {
     backgroundColor: '#007BFF',
@@ -221,6 +289,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  multiSelect: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    elevation: 2,
+    padding: 8,
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginVertical: 10,
+  },
+  shopBox: {
+    borderWidth: 1,
+    borderColor: 'gray',
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    height: 50,
+    paddingHorizontal: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00897B',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+    marginTop: 20
   },
 });
 
