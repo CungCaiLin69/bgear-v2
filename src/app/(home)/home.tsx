@@ -53,7 +53,7 @@ export default function HomePage() {
 
         <TouchableOpacity
           style={styles.optionButton}
-          onPress={() => router.push('/')} // Navigate to the book shop page
+          onPress={() => router.push('/(home)/book-shop')} // Navigate to the book shop page
         >
           <Text style={styles.optionButtonText}>Book a Shop</Text>
         </TouchableOpacity>
