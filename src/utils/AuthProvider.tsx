@@ -77,6 +77,7 @@ export type AuthContextType = {
     photos: string[];
   }) => Promise<void>;
   closeShop: () => Promise<void>;
+  getAllShop: () => Promise<Shop[]>
 };
 
 // Create the AuthContext
@@ -537,7 +538,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
         }
       });
 
-      const data = await response.json();
+      const shops = await response.json();
+      return shops;
     } catch(error) {
       console.error('Error getting shop', error);
       throw error;
@@ -564,6 +566,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
             createShop,
             editShop,
             closeShop,
+            getAllShop
           }}
       >
         {children}
