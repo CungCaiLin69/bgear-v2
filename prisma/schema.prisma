@@ -99,15 +99,17 @@ model Booking {
 model Order {
   id          Int      @id @default(autoincrement())
   userId      String
-  repairmanId Int
-  location    String // Store as GeoJSON or use PostGIS
-  status      String   @default("requested") // requested, accepted, en_route, completed
+  repairmanId Int?
+  locationLat Float
+  locationLng Float
+  vehicleType String
+  complaint   String
+  status      String   @default("requested")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  user      User      @relation(fields: [userId], references: [id])
-  repairman Repairman @relation(fields: [repairmanId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  repairman Repairman? @relation(fields: [repairmanId], references: [id])
 }
 
 model Review {
