@@ -1,43 +1,70 @@
 import { useAuth } from "@/src/utils/AuthProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Card } from "@rneui/themed";
-import { useNavigation } from "expo-router";
-import { useEffect } from "react";
+import { Card, Button } from "@rneui/themed";
+import { router, useNavigation } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text } from "react-native";
 
 const API_URL = 'http://10.0.2.2:3000/api/get-all-shop';
 
+export type Shop = {
+  id: number;
+  ownerId: string;
+  name: string;
+  location: string;
+  services: string[];
+  photos: string[];
+  phoneNumber?: string;
+};
+
 export default function BookShopScreen() {
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigation = useNavigation();
   const { getAllShop } = useAuth();
 
-
-
   useEffect(() => {
-    const getAllShopOnInit = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(API_URL, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      console.log(response)
-    }
-    getAllShopOnInit();
+    const fetchShops = async () =>{
+      try{
+        const shopsData = await getAllShop();
+        setShops(shopsData);
+        console.log("this is shops: ", shops)
+      } catch (error){
+        console.error("Error fetching shops.")
+      } finally{
+        setIsLoading(false);
+      }
+    };
+    fetchShops();
   }, [])
+
+  if (isLoading) {
+    return <Text>Loading shops...</Text>;
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>
         Book a Shop
       </Text>
-      <Card>
-        <Card.Title>
-        SHOP 1
-        </Card.Title>
-      </Card>
+      {shops.map((shop) => (
+        <Card key={shop.id}>
+          <Card.Title>{shop.name}</Card.Title>
+          <Text>{shop.location}</Text>
+          <Button
+            title="Book Shop"
+            onPress={() => {
+              router.push({
+                pathname: '/(home)/shop-detail',
+                params: {
+                  shopId: shop.id,
+                  shopName: shop.name
+                }
+              })
+            }}
+          />
+        </Card>      
+      ))}
     </ScrollView>
   );
 };

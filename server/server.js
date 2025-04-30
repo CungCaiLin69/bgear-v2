@@ -526,7 +526,6 @@ app.post('/api/close-shop', verifyToken, async (req, res) => {
 app.get('/api/get-all-shop', verifyToken, async (req, res) => {
   try{
     const shops = await prisma.shop.findMany();
-    console.log("This is req: ", req);
     res.json(shops);
   }catch(error){
     console.error('Error getting all shops:', error);
