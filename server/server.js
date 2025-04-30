@@ -4,12 +4,65 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { Server } = require('socket.io');
 const app = express();
+const http = require('http');
+const httpServer = http.createServer(app);
 
 const JWT_SECRET = 'CungCaiLin69';
 
 app.use(cors());
 app.use(express.json());
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", 
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'], 
+  pingTimeout: 30000,                  
+  pingInterval: 10000                  
+});
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  console.log("🔒 Socket token received:", token);
+
+  if (!token) return next(new Error('Authentication error'));
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    console.error("JWT error:", err.message);
+    return next(new Error('Authentication error'));
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.user.id);
+
+  socket.on('joinOrderRoom', ({ orderId }) => {
+    socket.join(`order_${orderId}`);
+    console.log(`Socket ${socket.id} joined room order_${orderId}`);
+  });
+
+  socket.on('sendMessage', ({ orderId, senderId, senderRole, message }) => {
+    console.log('New message:', { orderId, senderId, message });
+    io.to(`order_${orderId}`).emit('newMessage', {
+      senderId,
+      senderRole,
+      message,
+      createdAt: new Date(),
+    });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
+});
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
@@ -523,6 +576,158 @@ app.post('/api/close-shop', verifyToken, async (req, res) => {
   }
 });
 
+app.get('/api/repairman/orders', verifyToken, async (req, res) => {
+  const repairmanId = parseInt(req.user.id);
+
+  const orders = await prisma.order.findMany({
+    where: { repairmanId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json({ orders });
+});
+
+app.post('/order/create', verifyToken, async (req, res) => {
+  const { address, vehicleType, complaint, locationLat, locationLng } = req.body;
+
+  if (!address || !vehicleType || !complaint || !locationLat || !locationLng) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+
+  try {
+    const order = await prisma.order.create({
+      data: {
+        userId: req.user.id,
+        locationLat: parseFloat(locationLat),
+        locationLng: parseFloat(locationLng),
+        vehicleType,
+        complaint,
+        status: 'requested',
+      }
+    });
+
+    io.emit('newOrderRequest', {
+      orderId: order.id,
+      locationLat: order.locationLat,
+      locationLng: order.locationLng,
+      address,
+      vehicleType: order.vehicleType,
+      complaint: order.complaint,
+    });
+
+    return res.status(201).json({ success: true, order });
+  } catch (error) {
+    console.error('Create Order Error:', error);
+    return res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+app.get('/api/order/:orderId', verifyToken, async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: {
+        id: parseInt(orderId), // Make sure orderId is an integer
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phoneNumber: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json({ order });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
+app.post('/order/accept/:orderId', verifyToken, async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    if (!req.user.is_repairman) {
+      return res.status(403).json({ error: 'Only repairmen can accept orders' });
+    }
+
+    const order = await prisma.order.update({
+      where: { id: parseInt(orderId) },
+      data: {
+        repairmanId: req.user.id,
+        status: 'accepted'
+      }
+    });
+
+    io.emit('orderAccepted', { orderId: parseInt(orderId) });
+
+    return res.status(200).json({ success: true, order });
+  } catch (error) {
+    console.error('Accept Order Error:', error);
+    return res.status(500).json({ error: 'Failed to accept order' });
+  }
+});
+
+app.post('/order/reject/:orderId', verifyToken, async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // Reject = delete the order
+    await prisma.order.delete({
+      where: { id: parseInt(orderId) }
+    });
+
+    io.emit('orderRejected', { orderId: parseInt(orderId) });
+
+    return res.status(200).json({ success: true, message: 'Order rejected' });
+  } catch (error) {
+    console.error('Reject Order Error:', error);
+    return res.status(500).json({ error: 'Failed to reject order' });
+  }
+});
+
+app.post('/order/cancel/:orderId', verifyToken, async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    await prisma.order.delete({
+      where: { id: parseInt(orderId) }
+    });
+
+    return res.status(200).json({ success: true, message: 'Order cancelled' });
+  } catch (error) {
+    console.error('Cancel Order Error:', error);
+    return res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
+app.post('/order/finish/:orderId', verifyToken, async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    const order = await prisma.order.update({
+      where: { id: parseInt(orderId) },
+      data: {
+        status: 'completed'
+      }
+    });
+
+    return res.status(200).json({ success: true, order });
+  } catch (error) {
+    console.error('Finish Order Error:', error);
+    return res.status(500).json({ error: 'Failed to finish order' });
+  }
+});
+
 app.get('/api/get-all-shop', verifyToken, async (req, res) => {
   try{
     const shops = await prisma.shop.findMany();
@@ -539,6 +744,7 @@ app.get('/api/protected', verifyToken, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Socket.IO server is ready`);
 });

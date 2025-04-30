@@ -41,7 +41,7 @@ export default function HomePage() {
                     // If the user is already a repairman, show "Edit Repairman Profile" button
                     <TouchableOpacity
                       style={styles.becomeRepairmanButton}
-                      onPress={() => router.push('/(home)/edit-repairman')}
+                      onPress={() => router.push('../(dasboard)/repairman-dashboard')}
                     >
                       <Text style={styles.becomeRepairmanButtonText}>Repairman Dashboard</Text>
                     </TouchableOpacity>
@@ -80,7 +80,7 @@ export default function HomePage() {
       <View style={styles.optionsContainer}>
         <TouchableOpacity
           style={styles.optionButton}
-          onPress={() => router.push('/')} 
+          onPress={() => router.replace('../(repairman)/order-repairman')} 
         >
           <Text style={styles.optionButtonText}>Order a Repairman</Text>
         </TouchableOpacity>
