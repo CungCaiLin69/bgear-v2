@@ -64,21 +64,21 @@ model Shop {
 }
 
 model Repairman {
-  id               Int      @id @default(autoincrement())
+  id               String   @id @default(uuid())
   userId           String   @unique
-  skills           String[] // Skills (e.g., ["car repair", "bike repair"])
-  servicesProvided String[] // Services provided (e.g., ["tire change", "oil change"])
-  profilePicture   String? // URL for the profile picture (nullable)
-  phoneNumber      String?  @unique // nullable until verified
-  isVerified       Boolean  @default(false) // Add this field to track verification status
+  skills           String[]
+  servicesProvided String[]
+  profilePicture   String?
+  phoneNumber      String?  @unique
+  isVerified       Boolean  @default(false)
   isAvailable      Boolean  @default(true)
-  currentLocation  String? // Store as GeoJSON or use PostGIS (nullable)
+  currentLocation  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   // Relations
-  user   User    @relation(fields: [userId], references: [id])
-  Orders Order[]
+  user  User    @relation(fields: [userId], references: [id])
+  Order Order[]
 }
 
 model Booking {
@@ -97,19 +97,24 @@ model Booking {
 }
 
 model Order {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   userId      String
-  repairmanId Int?
+  repairmanId String?
+  address     String
   locationLat Float
   locationLng Float
   vehicleType String
   complaint   String
-  status      String   @default("requested")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      String    @default("requested")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  canceledAt  DateTime?
+  rejectedAt  DateTime?
 
   user      User       @relation(fields: [userId], references: [id])
-  repairman Repairman? @relation(fields: [repairmanId], references: [id])
+  repairman Repairman? @relation(fields: [repairmanId], references: [userId])
+
+  Message Message[]
 }
 
 model Review {
@@ -124,4 +129,15 @@ model Review {
   // Relations
   shop Shop @relation(fields: [shopId], references: [id])
   user User @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  senderId   String
+  senderRole String
+  message    String
+  createdAt  DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
 }

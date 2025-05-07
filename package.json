@@ -38,7 +38,7 @@
     "expo": "~52.0.33",
     "expo-auth-session": "^6.0.3",
     "expo-blur": "~14.0.3",
-    "expo-constants": "~17.0.5",
+    "expo-constants": "~17.0.8",
     "expo-font": "~13.0.3",
     "expo-haptics": "~14.0.1",
     "expo-image-picker": "^16.0.6",
@@ -83,7 +83,9 @@
     "react-native-webview": "13.12.5",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "socketio": "^1.0.0"
+    "socketio": "^1.0.0",
+    "expo-notifications": "~0.29.14",
+    "expo-av": "~15.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -21,6 +21,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": ["VIBRATE", "NOTIFICATIONS"],
       "package": "com.anonymous.bgearv2"
     },
     "web": {
