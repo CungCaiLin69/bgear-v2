@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   TextInput, 
-  Button, 
   FlatList, 
   KeyboardAvoidingView, 
   Platform, 
@@ -42,6 +41,8 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const wasScrolledToBottom = useRef(true);
+  // Add a ref to track messages already received to prevent duplicates
+  const processedMessageIds = useRef(new Set<number>());
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +69,6 @@ export default function ChatScreen() {
       console.error('Error fetching order info:', error);
     }
   };
-
 
   const fetchPreviousMessages = async () => {
     if (!userToken || !orderId) {
@@ -105,6 +105,12 @@ export default function ChatScreen() {
           message: msg.message,
           createdAt: msg.createdAt
         }));
+        
+        // Store all existing message IDs to avoid duplicates
+        formattedMessages.forEach((msg: { id: number; }) => {
+          processedMessageIds.current.add(msg.id);
+        });
+        
         setMessages(formattedMessages);
       } else {
         console.warn('Received invalid messages format:', data);
@@ -116,8 +122,6 @@ export default function ChatScreen() {
         'Connection Error',
         'Could not load previous messages. Please check your connection.'
       );
-      // Important: Set loading to false even on error
-      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +132,7 @@ export default function ChatScreen() {
 
     // Join the order chat room
     socket.emit('joinOrderRoom', { orderId });
-    console.log(orderId)
+    console.log('Joining room for order:', orderId);
     
     // Fetch previous messages and order info when component mounts
     fetchOrderInfo();
@@ -139,14 +143,27 @@ export default function ChatScreen() {
         console.log('Loading timeout reached, forcing loading state to false');
         setIsLoading(false);
       }
-    }, 10000); // 10 seconds timeout
+    }, 10000);
 
     // Listen for new messages
     const handleNewMessage = (msg: Message) => {
       console.log('Received new message:', msg);
-      // Avoid duplicate messages by checking if it already exists
+      
+      // Check if we've already processed this message to avoid duplicates
+      if (processedMessageIds.current.has(msg.id)) {
+        console.log('Duplicate message detected, ignoring:', msg.id);
+        return;
+      }
+      
+      // Mark this message as processed
+      processedMessageIds.current.add(msg.id);
+      
+      // Add the new message to state
       setMessages(prev => {
-        const exists = prev.some(m => m.id === msg.id);
+        const exists = prev.some(m => 
+          // Check by ID if available, otherwise check content and timestamp
+          (m.id === msg.id) || (m.message === msg.message && m.senderId === msg.senderId && Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000)
+        );
         if (exists) return prev;
         return [...prev, msg];
       });
@@ -156,7 +173,7 @@ export default function ChatScreen() {
         setUnreadCount(prev => prev + 1);
         showChatNotification(
           `New message from ${msg.senderRole === 'repairman' ? 'Repairman' : 'Customer'}: ${msg.message}`,
-          orderId
+          orderId, msg.senderId
         );
       }
 
@@ -186,6 +203,7 @@ export default function ChatScreen() {
       socket.off('newMessage', handleNewMessage);
       socket.off('orderCancelled', handleOrderCancelled);
       socket.off('orderCanceled', handleOrderCancelled);
+      socket.emit('leaveOrderRoom', { orderId });
     };
   }, [socket, orderId, user, isChatFocused, showChatNotification]);
 
@@ -212,6 +230,7 @@ export default function ChatScreen() {
     setInputMessage('');
   
     try {
+      // Send message via socket
       socket?.emit('sendMessage', {
         orderId: Number(orderId),
         senderId: optimisticMessage.senderId,
@@ -244,7 +263,7 @@ export default function ChatScreen() {
   };
 
   // Correctly format the timestamp
-  const formatTime = (dateString: Date) => {
+  const formatTime = (dateString: Date | string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -256,18 +275,9 @@ export default function ChatScreen() {
     if (user?.is_repairman) {
       return orderInfo.user?.name || 'Customer';
     } else {
-      return orderInfo.repairman?.User?.name || 'Repairman';
+      return orderInfo.repairman?.user?.name || 'Repairman';
     }
   };
-
-  // if (isLoading) {
-  //   return (
-  //     <View style={styles.loadingContainer}>
-  //       <ActivityIndicator size="large" color="#3498db" />
-  //       <Text style={styles.loadingText}>Loading messages...</Text>
-  //     </View>
-  //   );
-  // }
 
   return (
     <View style={styles.container}>
@@ -294,58 +304,65 @@ export default function ChatScreen() {
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => {
-            // Determine if message is from current user
-            const isMyMessage = user && item.senderId === user.id;
-            
-            // Determine if sender is repairman (regardless of current user)
-            const isRepairmanMessage = item.senderRole === 'repairman';
-            
-            return (
-              <View style={[
-                styles.messageBubble,
-                isMyMessage 
-                  ? styles.myMessage 
-                  : isRepairmanMessage 
-                    ? styles.repairmanMessage 
-                    : styles.customerMessage
-              ]}>
-                <Text style={styles.senderRole}>
-                  {isMyMessage 
-                    ? 'Me' 
-                    : isRepairmanMessage ? 'Repairman' : 'Customer'}
-                </Text>
-                <Text style={styles.messageText}>{item.message}</Text>
-                <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
-              </View>
-            );
-          }}
-          onContentSizeChange={() => {
-            if (wasScrolledToBottom.current) {
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3498db" />
+            <Text style={styles.loadingText}>Loading messages...</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => {
+              // Determine if message is from current user
+              const isMyMessage = user && (item.senderId === user.id || item.senderId === user.phoneNumber);
+              
+              // Determine if sender is repairman (regardless of current user)
+              const isRepairmanMessage = item.senderRole === 'repairman';
+              
+              return (
+                <View style={[
+                  styles.messageBubble,
+                  isMyMessage 
+                    ? styles.myMessage 
+                    : isRepairmanMessage 
+                      ? styles.repairmanMessage 
+                      : styles.customerMessage
+                ]}>
+                  <Text style={styles.senderRole}>
+                    {isMyMessage 
+                      ? 'Me' 
+                      : isRepairmanMessage ? 'Repairman' : 'Customer'}
+                  </Text>
+                  <Text style={styles.messageText}>{item.message}</Text>
+                  <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
+                </View>
+              );
+            }}
+            onContentSizeChange={() => {
+              if (wasScrolledToBottom.current) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
+            onLayout={() => {
               flatListRef.current?.scrollToEnd({ animated: false });
-            }
-          }}
-          onLayout={() => {
-            flatListRef.current?.scrollToEnd({ animated: false });
-            wasScrolledToBottom.current = true;
-          }}
-          onScroll={handleScroll}
-          scrollEventThrottle={400}
-          contentContainerStyle={styles.messageList}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyContainer}>
-              <Icon name="chatbubble-ellipses-outline" size={50} color="#CCCCCC" />
-              <Text style={styles.emptyText}>No messages yet</Text>
-              <Text style={styles.emptySubtext}>
-                Start the conversation with {user?.is_repairman ? 'the customer' : 'your repairman'}
-              </Text>
-            </View>
-          )}
-        />
+              wasScrolledToBottom.current = true;
+            }}
+            onScroll={handleScroll}
+            scrollEventThrottle={400}
+            contentContainerStyle={styles.messageList}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <Icon name="chatbubble-ellipses-outline" size={50} color="#CCCCCC" />
+                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Start the conversation with {user?.is_repairman ? 'the customer' : 'your repairman'}
+                </Text>
+              </View>
+            )}
+          />
+        )}
 
         {unreadCount > 0 && !wasScrolledToBottom.current && (
           <TouchableOpacity 
@@ -442,6 +459,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 18,
     borderBottomLeftRadius: 18,
     borderBottomRightRadius: 4,
+    marginLeft: 50, 
   },
   repairmanMessage: {
     alignSelf: 'flex-start',
@@ -450,6 +468,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 18,
     borderBottomLeftRadius: 4,
     borderBottomRightRadius: 18,
+    marginRight: 50, 
   },
   customerMessage: {
     alignSelf: 'flex-start',
@@ -460,6 +479,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 18,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    marginRight: 50, 
   },
   messageBubble: {
     padding: 12,

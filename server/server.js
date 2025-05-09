@@ -609,7 +609,6 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
       await sendVerificationCode(phoneNumber);
     }
 
-    // 🔹 Ensure proper data format for skills & services
     const updatedSkills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
     const updatedServices = Array.isArray(servicesProvided) ? servicesProvided : servicesProvided.split(',').map(s => s.trim());
 

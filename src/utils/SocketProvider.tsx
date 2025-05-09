@@ -18,7 +18,7 @@ interface SocketContextType {
   isConnected: boolean;
   reconnect: () => void;
   lastError: string | null;
-  showChatNotification: (message: string, orderId: number) => void;
+  showChatNotification: (message: string, orderId: number, senderId: string) => void;
   pendingOrders: any[];
   markMessagesAsRead: (orderId: number) => void;
   getUnreadMessageCount: (orderId: number) => Promise<number>;
@@ -43,6 +43,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,  
+    shouldShowList: true     
   }),
 });
 
@@ -129,12 +131,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // Show in-app notification
-  const showChatNotification = useCallback((message: string, orderId: number) => {
-    // Don't show notification if user is already in the chat screen for this order
-    if (currentScreen.current?.includes('chat') && 
-        activeOrderRooms.current.has(orderId)) {
-      return;
-    }
+  const showChatNotification = useCallback((message: string, orderId: number, senderId: string) => {
+    // Check if the message is in a room the user is currently viewing
+    if ((currentScreen.current?.includes('chat') && 
+      activeOrderRooms.current.has(orderId)) ||
+      (user && senderId === user.id)) {
+    return;
+  }
     
     // Also show a system notification if app is in background
     Notifications.scheduleNotificationAsync({
@@ -253,7 +256,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           
           // Show notification
           const senderRole = msg.senderRole === 'repairman' ? 'Repairman' : 'Customer';
-          showChatNotification(`${senderRole}: ${msg.message}`, msg.orderId);
+          showChatNotification(`${senderRole}: ${msg.message}`, msg.orderId, msg.senderId);
         }
       }
     });
@@ -345,14 +348,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Set up reconnection logic
   useEffect(() => {
-    let reconnectTimer: NodeJS.Timeout;
+    let reconnectTimer: ReturnType<typeof setTimeout>;  // Works in both Node and browser
     
     if (!isConnected && userToken) {
       console.log('Not connected but have token, scheduling reconnection');
       reconnectTimer = setTimeout(() => {
         console.log('Attempting scheduled reconnection');
         reconnect();
-      }, 5000); // Try to reconnect every 5 seconds
+      }, 5000); 
     }
     
     return () => {
@@ -360,7 +363,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         clearTimeout(reconnectTimer);
       }
     };
-  }, [isConnected, userToken]);
+}, [isConnected, userToken, reconnect]);
 
   return (
     <SocketContext.Provider 
@@ -383,7 +386,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useSocket = () => useContext(SocketContext);
 
-// Helper hook to manage chat room joining/leaving
 export const useChatRoom = (orderId: number | null) => {
   const { socket, markMessagesAsRead } = useSocket();
   

@@ -140,7 +140,7 @@ const EditRepairmanForm = () => {
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <View style={[styles.container, { flex: 1 }]}>
-        <Text style={styles.title}>Repairman Dashboard</Text>
+        <Text style={styles.title}>Repairman Setting</Text>
   
         {profilePictureUrl && (
           <Image source={{ uri: profilePictureUrl }} style={styles.profilePicture} />
