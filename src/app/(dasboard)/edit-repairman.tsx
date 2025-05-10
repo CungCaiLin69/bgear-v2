@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView } from 'react-native';
 import { useAuth } from '../../utils/AuthProvider';
 import { useLocalSearchParams } from 'expo-router';
@@ -24,17 +24,18 @@ const AVAILABLE_SERVICES = [
   { id: 'parts_replacement', name: 'Parts Replacement' }
 ];
 
-const BecomeRepairmanForm = () => {
+const EditRepairmanForm = () => {
   const navigation = useNavigation();
-  const { becomeRepairman } = useAuth();
+  const { user, repairman, editRepairman, resignAsRepairman } = useAuth();
   const { profilePicture } = useLocalSearchParams();
 
   const profilePictureUrl = Array.isArray(profilePicture) ? profilePicture[0] : profilePicture;
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(user?.name || '');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(repairman?.phoneNumber || '');
+  const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSelectedSkillsChange = (selectedItems: string[]) => {
@@ -44,6 +45,35 @@ const BecomeRepairmanForm = () => {
   const handleSelectedServicesChange = (selectedItems: string[]) => {
     setSelectedServices(selectedItems);
   };
+
+  useEffect(() => {
+    if (repairman) {
+      setName(user?.name || '');
+      
+      // Map from stored names to IDs for selected values
+      const skillIds = repairman.skills.map((skillName: string) => {
+        const skill = AVAILABLE_SKILLS.find(s => s.name === skillName);
+        return skill ? skill.id : skillName.toLowerCase().replace(/\s+/g, '_');
+      });
+      
+      const serviceIds = repairman.servicesProvided.map((serviceName: string) => {
+        const service = AVAILABLE_SERVICES.find(s => s.name === serviceName);
+        return service ? service.id : serviceName.toLowerCase().replace(/\s+/g, '_');
+      });
+
+      const prices: Record<string, string> = {};
+      if (repairman.servicesWithPrices) {
+        for (const [service, price] of Object.entries(repairman.servicesWithPrices as Record<string, number>)) {
+          const serviceId = AVAILABLE_SERVICES.find(s => s.name === service)?.id || service.toLowerCase().replace(/\s+/g, '_');
+          prices[serviceId] = price.toString();
+        }
+      }
+      setServicePrices(prices);
+      setSelectedSkills(skillIds);
+      setSelectedServices(serviceIds);
+      setPhoneNumber(repairman?.phoneNumber || '');
+    }
+  }, [repairman, user]);
 
   const validateInputs = () => {
     if (selectedSkills.length === 0) {
@@ -66,7 +96,7 @@ const BecomeRepairmanForm = () => {
     setIsLoading(true);
 
     try {
-      // Map selected IDs to actual skill/service names for better readability in the database
+      // Map selected IDs to actual skill/service names
       const skillNames = selectedSkills.map(id => 
         AVAILABLE_SKILLS.find(skill => skill.id === id)?.name || id
       );
@@ -75,29 +105,59 @@ const BecomeRepairmanForm = () => {
         AVAILABLE_SERVICES.find(service => service.id === id)?.name || id
       );
 
-      const repairmanData = {
+      const servicesWithPrices = Object.fromEntries(
+        selectedServices.map(id => [
+          AVAILABLE_SERVICES.find(s => s.id === id)?.name || id,
+          Number(servicePrices[id] || 0)
+        ])
+      );
+
+      await editRepairman({
         name,
         skills: skillNames,
         servicesProvided: serviceNames,
-        profilePicture: profilePictureUrl || null,
         phoneNumber,
-      };
+        servicesWithPrices
+      });
 
-      await becomeRepairman(repairmanData);
-      Alert.alert('Success', 'You are now a repairman!');
+      Alert.alert('Success', 'Repairman profile updated successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error submitting form:', error);
-      Alert.alert('Error', 'Failed to submit the form. Please try again.');
+      console.error('Error updating repairman:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleResign = async () => {
+    Alert.alert(
+      'Confirm Resignation',
+      'Are you sure you want to resign as a repairman? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Resign', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await resignAsRepairman();
+              Alert.alert('Success', 'You have resigned as a repairman.');
+              navigation.goBack();
+            } catch (error) {
+              console.error('Error resigning as repairman:', error);
+              Alert.alert('Error', 'Failed to resign as a repairman. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <View style={[styles.container, { flex: 1 }]}>
-        <Text style={styles.title}>Become a Repairman</Text>
+        <Text style={styles.title}>Repairman Setting</Text>
   
         {profilePictureUrl && (
           <Image source={{ uri: profilePictureUrl }} style={styles.profilePicture} />
@@ -148,7 +208,26 @@ const BecomeRepairmanForm = () => {
             styleMainWrapper={styles.multiSelect}
           />
         </View>
-  
+
+        {selectedServices.map(serviceId => {
+          const service = AVAILABLE_SERVICES.find(s => s.id === serviceId);
+          return (
+            <View key={serviceId}>
+              <Text>{service?.name || serviceId} Price (IDR)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={servicePrices[serviceId] || ''}
+                onChangeText={(val) =>
+                  setServicePrices(prev => ({ ...prev, [serviceId]: val }))
+                }
+                placeholder="e.g. 75000"
+              />
+            </View>
+          );
+        })}
+
+        <Text style={styles.label}>Phone Number</Text>
         <TextInput 
           style={styles.input}
           placeholder="Phone Number"
@@ -165,7 +244,13 @@ const BecomeRepairmanForm = () => {
             disabled={isLoading}
           >
             <Text style={styles.submitButtonText}>
-              {isLoading ? 'Submitting...' : 'Submit'}
+              {isLoading ? 'Editting...' : 'Edit'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleResign} style={styles.resignButton}>
+            <Text style={styles.submitButtonText}>
+              {isLoading ? 'Resigning...' : 'Resign as Repairman'}
             </Text>
           </TouchableOpacity>
   
@@ -177,7 +262,7 @@ const BecomeRepairmanForm = () => {
     </ScrollView>
   );  
 };
-
+  
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -186,9 +271,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 30,
     textAlign: 'center',
-    marginTop: 50
+    marginTop: 30
   },
   profilePicture: {
     width: 100,
@@ -252,11 +337,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   resignButton: {
-    backgroundColor: '#ff3b30',
-    padding: 15,
-    borderRadius: 5,
+    borderRadius: 20,
+    backgroundColor: 'red',  
     alignItems: 'center',
-    marginBottom: 10,
+    padding: 15,
+    marginTop: 10
   },
   resignButtonText: {
     color: '#fff',
@@ -265,4 +350,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BecomeRepairmanForm;
+export default EditRepairmanForm;
