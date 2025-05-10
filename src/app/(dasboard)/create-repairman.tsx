@@ -36,6 +36,7 @@ const BecomeRepairmanForm = () => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
 
   const handleSelectedSkillsChange = (selectedItems: string[]) => {
     setSelectedSkills(selectedItems);
@@ -75,10 +76,18 @@ const BecomeRepairmanForm = () => {
         AVAILABLE_SERVICES.find(service => service.id === id)?.name || id
       );
 
+      const servicesWithPrices = Object.fromEntries(
+        selectedServices.map(id => [
+          AVAILABLE_SERVICES.find(s => s.id === id)?.name || id,
+          Number(servicePrices[id] || 0)
+        ])
+      );
+
       const repairmanData = {
         name,
         skills: skillNames,
         servicesProvided: serviceNames,
+        servicesWithPrices,
         profilePicture: profilePictureUrl || null,
         phoneNumber,
       };
@@ -148,7 +157,27 @@ const BecomeRepairmanForm = () => {
             styleMainWrapper={styles.multiSelect}
           />
         </View>
-  
+
+        {selectedServices.map(serviceId => {
+          const service = AVAILABLE_SERVICES.find(s => s.id === serviceId);
+          return (
+            <View key={serviceId}>
+              <Text style={{ marginBottom: 4 }}>
+                {service?.name || serviceId} Price (IDR)
+              </Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={servicePrices[serviceId] || ''}
+                onChangeText={(value) =>
+                  setServicePrices(prev => ({ ...prev, [serviceId]: value }))
+                }
+                placeholder="e.g. 50000"
+              />
+            </View>
+          );
+        })}
+
         <TextInput 
           style={styles.input}
           placeholder="Phone Number"

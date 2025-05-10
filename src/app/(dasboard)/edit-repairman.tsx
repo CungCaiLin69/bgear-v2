@@ -35,6 +35,7 @@ const EditRepairmanForm = () => {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [phoneNumber, setPhoneNumber] = useState(repairman?.phoneNumber || '');
+  const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSelectedSkillsChange = (selectedItems: string[]) => {
@@ -59,7 +60,15 @@ const EditRepairmanForm = () => {
         const service = AVAILABLE_SERVICES.find(s => s.name === serviceName);
         return service ? service.id : serviceName.toLowerCase().replace(/\s+/g, '_');
       });
-      
+
+      const prices: Record<string, string> = {};
+      if (repairman.servicesWithPrices) {
+        for (const [service, price] of Object.entries(repairman.servicesWithPrices as Record<string, number>)) {
+          const serviceId = AVAILABLE_SERVICES.find(s => s.name === service)?.id || service.toLowerCase().replace(/\s+/g, '_');
+          prices[serviceId] = price.toString();
+        }
+      }
+      setServicePrices(prices);
       setSelectedSkills(skillIds);
       setSelectedServices(serviceIds);
       setPhoneNumber(repairman?.phoneNumber || '');
@@ -96,11 +105,19 @@ const EditRepairmanForm = () => {
         AVAILABLE_SERVICES.find(service => service.id === id)?.name || id
       );
 
+      const servicesWithPrices = Object.fromEntries(
+        selectedServices.map(id => [
+          AVAILABLE_SERVICES.find(s => s.id === id)?.name || id,
+          Number(servicePrices[id] || 0)
+        ])
+      );
+
       await editRepairman({
         name,
         skills: skillNames,
         servicesProvided: serviceNames,
         phoneNumber,
+        servicesWithPrices
       });
 
       Alert.alert('Success', 'Repairman profile updated successfully!');
@@ -191,7 +208,25 @@ const EditRepairmanForm = () => {
             styleMainWrapper={styles.multiSelect}
           />
         </View>
-  
+
+        {selectedServices.map(serviceId => {
+          const service = AVAILABLE_SERVICES.find(s => s.id === serviceId);
+          return (
+            <View key={serviceId}>
+              <Text>{service?.name || serviceId} Price (IDR)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={servicePrices[serviceId] || ''}
+                onChangeText={(val) =>
+                  setServicePrices(prev => ({ ...prev, [serviceId]: val }))
+                }
+                placeholder="e.g. 75000"
+              />
+            </View>
+          );
+        })}
+
         <Text style={styles.label}>Phone Number</Text>
         <TextInput 
           style={styles.input}

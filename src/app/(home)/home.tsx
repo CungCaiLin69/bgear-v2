@@ -203,7 +203,7 @@ export default function HomePage() {
             ) : (
               <TouchableOpacity
                 style={[styles.proButton, styles.repairmanButton]}
-                onPress={() => router.push('../(dashboard)/create-repairman')}
+                onPress={() => router.push('/create-repairman')}
               >
                 <Icon name="person-add" size={20} color="#fff" />
                 <Text style={styles.proButtonText}>Become a Repairman</Text>

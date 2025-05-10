@@ -523,7 +523,7 @@ app.get('/api/active-order', verifyToken, async (req, res) => {
 
 // Become a repairman endpoint
 app.post('/api/become-repairman', verifyToken, async (req, res) => {
-  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
+  const { skills, servicesProvided, profilePicture, phoneNumber, servicesWithPrices } = req.body;
   const userId = req.user.id;
 
   try {
@@ -547,7 +547,8 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
         servicesProvided,
         profilePicture: profilePicture || null,
         phoneNumber,
-        isVerified: false,
+        servicesWithPrices,
+        isVerified: true,
       },
     });
 
@@ -588,11 +589,11 @@ app.get('/api/check-repairman', verifyToken, async (req, res) => {
 
 // Edit repairman profile
 app.put('/api/edit-repairman', verifyToken, async (req, res) => {
-  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
+  const { skills, servicesProvided, profilePicture, phoneNumber, servicesWithPrices } = req.body;
   const userId = req.user.id;
 
   try {
-    console.log(`Editing repairman for user: ${userId}`); // Debug log ✅
+    console.log(`Editing repairman for user: ${userId}`); 
 
     const repairman = await prisma.repairman.findUnique({ where: { userId } });
 
@@ -619,6 +620,7 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
         servicesProvided: updatedServices,
         profilePicture: profilePicture || repairman.profilePicture,
         phoneNumber: phoneNumber || repairman.phoneNumber,
+        servicesWithPrices,
         isVerified,
       },
     });
@@ -773,7 +775,18 @@ app.get('/api/repairman/orders', verifyToken, async (req, res) => {
 });
 
 app.post('/order/create', verifyToken, async (req, res) => {
-  const { address, vehicleType, complaint, locationLat, locationLng } = req.body;
+  const {
+    address,
+    vehicleType,
+    complaint,
+    locationLat,
+    locationLng,
+    vehicleBrand,
+    vehicleModel,
+    vehicleYear,
+    vehicleMileage,
+    estimatedPrice,
+  } = req.body;
 
   if (!address || !vehicleType || !complaint || !locationLat || !locationLng) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -783,12 +796,16 @@ app.post('/order/create', verifyToken, async (req, res) => {
     const order = await prisma.order.create({
       data: {
         userId: req.user.id,
-        address, 
-        locationLat: parseFloat(locationLat),
-        locationLng: parseFloat(locationLng),
+        address,
         vehicleType,
         complaint,
-        status: 'requested',
+        locationLat,
+        locationLng,
+        vehicleBrand: vehicleBrand || null,
+        vehicleModel: vehicleModel || null,
+        vehicleYear: vehicleYear ? parseInt(vehicleYear) : null,
+        vehicleMileage: vehicleMileage ? parseInt(vehicleMileage) : null,
+        price: estimatedPrice || null,
       }
     });
 

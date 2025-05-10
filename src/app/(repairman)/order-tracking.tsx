@@ -637,6 +637,17 @@ export default function TrackingScreen() {
             <Text style={styles.userDetail}>
               Issue: {orderInfo?.complaint || 'Not specified'}
             </Text>
+
+            <Text style={styles.userDetail}>Vehicle Brand: {orderInfo?.vehicleBrand || '-'}</Text>
+            <Text style={styles.userDetail}>Model: {orderInfo?.vehicleModel || '-'}</Text>
+            <Text style={styles.userDetail}>Year: {orderInfo?.vehicleYear || '-'}</Text>
+            <Text style={styles.userDetail}>Mileage: {orderInfo?.vehicleMileage ? `${orderInfo.vehicleMileage.toLocaleString()} km` : '-'}</Text>
+
+            <Text style={styles.userDetail}>
+              Estimated Price: {typeof orderInfo?.price === 'number'
+                ? `Rp ${orderInfo.price.toLocaleString()}`
+                : 'TBD'}
+            </Text>
           </View>
         </View>
 

@@ -64,17 +64,18 @@ model Shop {
 }
 
 model Repairman {
-  id               String   @id @default(uuid())
-  userId           String   @unique
-  skills           String[]
-  servicesProvided String[]
-  profilePicture   String?
-  phoneNumber      String?  @unique
-  isVerified       Boolean  @default(false)
-  isAvailable      Boolean  @default(true)
-  currentLocation  String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  skills             String[]
+  servicesProvided   String[]
+  profilePicture     String?
+  phoneNumber        String?  @unique
+  isVerified         Boolean  @default(false)
+  isAvailable        Boolean  @default(true)
+  currentLocation    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  servicesWithPrices Json?
 
   // Relations
   user  User    @relation(fields: [userId], references: [id])
@@ -97,19 +98,24 @@ model Booking {
 }
 
 model Order {
-  id          Int       @id @default(autoincrement())
-  userId      String
-  repairmanId String?
-  address     String
-  locationLat Float
-  locationLng Float
-  vehicleType String
-  complaint   String
-  status      String    @default("requested")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  canceledAt  DateTime?
-  rejectedAt  DateTime?
+  id             Int       @id @default(autoincrement())
+  userId         String
+  repairmanId    String?
+  address        String
+  locationLat    Float
+  locationLng    Float
+  vehicleType    String
+  complaint      String
+  status         String    @default("requested")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  canceledAt     DateTime?
+  rejectedAt     DateTime?
+  vehicleBrand   String?
+  vehicleModel   String?
+  vehicleYear    Int?
+  vehicleMileage Int?
+  price          Float?
 
   user      User       @relation(fields: [userId], references: [id])
   repairman Repairman? @relation(fields: [repairmanId], references: [userId])
