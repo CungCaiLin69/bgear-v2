@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../utils/AuthProvider'; 
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 export default function HomePage() {
   const { userToken, user } = useAuth(); 
   const router = useRouter();
+  const [userHaveBooking, setUserHaveBooking] = useState(false);
 
   // Redirect to login if not logged in
   if (!userToken) {
@@ -19,6 +20,26 @@ export default function HomePage() {
         <ActivityIndicator size="large" color="#007BFF" />
       </View>
     );
+  }
+
+  useEffect(() => {
+    getBookingByUser();
+  }, [])
+  
+
+  const getBookingByUser = async() => {
+    try{
+      const response = await fetch('http://10.0.2.2:3000/api/get-booking-by-user', {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+      },
+      })
+      const data = await response.json();
+      setUserHaveBooking(data);
+      console.log("booking by user: ", data);
+    }catch(error){
+      console.log("Failed to fetch booking by user", error);
+    }
   }
 
   return (
@@ -58,12 +79,20 @@ export default function HomePage() {
                   {/* Shop Button */}
                   {user?.has_shop ? (
                     // If the user has a shop, show "Edit Shop" button
+                    // <TouchableOpacity
+                    //   style={styles.shopButton}
+                    //   onPress={() => router.push('/(home)/edit-shop')}
+                    // >
+                    //   <Text style={styles.shopButtonText}>Shop Dashboard</Text>
+                    // </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={styles.shopButton}
-                      onPress={() => router.push('/(home)/edit-shop')}
+                    style={styles.shopButton}
+                    onPress={() => router.push('/shop-dashboard')}
                     >
-                      <Text style={styles.shopButtonText}>Shop Dashboard</Text>
+                    <Text style={styles.shopButtonText}>Shop Dashboard</Text>
                     </TouchableOpacity>
+
                   ) : (
                     // If the user doesn't have a shop, show "Open a Shop" button
                     <TouchableOpacity
@@ -87,7 +116,7 @@ export default function HomePage() {
 
         <TouchableOpacity
           style={styles.optionButton}
-          onPress={() => router.push('/(home)/book-shop')} // Navigate to the book shop page
+          onPress={() => router.push('/(shop)/book-shop')} // Navigate to the book shop page
         >
           <Text style={styles.optionButtonText}>Book a Shop</Text>
         </TouchableOpacity>

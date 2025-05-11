@@ -587,6 +587,31 @@ app.get('/api/repairman/orders', verifyToken, async (req, res) => {
   res.json({ orders });
 });
 
+app.get('/api/shop/bookings', verifyToken, async (req, res) => {
+  const shopOwnerId = req.user.id;
+  try{
+    const bookings = await prisma.booking.findMany({
+      where: {
+        shop: {
+          owner: {
+            id: shopOwnerId
+          }
+        }
+      },
+      include: {
+        shop: {
+          include: {
+            owner: true
+          }
+        }
+      }
+    })
+    res.json({ bookings });
+  }catch(error){
+    console.error("Failed in getting bookings: ", error);
+  }
+})
+
 app.post('/order/create', verifyToken, async (req, res) => {
   const { address, vehicleType, complaint, locationLat, locationLng } = req.body;
 
@@ -619,6 +644,36 @@ app.post('/order/create', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Create Order Error:', error);
     return res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+app.post('/book/create', verifyToken, async(req, res) => {
+  const { shopId, datetime, issue} = req.body;
+
+  if(!shopId || !datetime || !issue){
+    return res.status(400).json({ error: 'Missing fields'});
+  }
+
+  try{
+    const booking = await prisma.booking.create({
+      data: {
+        userId: req.user.id,
+        shopId: parseInt(shopId),
+        datetime: datetime,
+        issue: issue
+      }
+    })
+
+    io.emit('newBookingRequest', {
+        bookingId: booking.id,
+        datetime: booking.datetime,
+        issue: booking.issue
+    });
+
+    return res.status(201).json({ success: true, booking});
+  }catch(error){
+    console.error('Error in booking shop', error);
+    return res.status(500).json({ error: 'Failed to book shop' });
   }
 });
 
@@ -735,6 +790,51 @@ app.get('/api/get-all-shop', verifyToken, async (req, res) => {
   }catch(error){
     console.error('Error getting all shops:', error);
     res.status(500).json({ error: 'An error occured while processing your request.'})
+  }
+})
+
+app.get('/api/get-shop-by-id/:shopId', verifyToken, async (req, res) => {
+  const {shopId} = req.params
+  try{
+    if (!shopId) {
+      return res.status(400).json({ error: 'Shop ID is required' });
+    }
+    const shop = await prisma.shop.findUnique({
+      where: {
+        id: parseInt(shopId)
+      }
+    })
+    if(!shop){
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(shop);
+  }catch(error){
+    console.error('Error getting shop:', error);
+    res.status(500).json({ error: 'An error occured while processing your request.'})
+  }
+})
+
+app.get('/api/get-booking-by-user', verifyToken, async(req, res) => {
+  const userId = req.user.id;
+  console.log("this is userId", userId);
+  try{
+    const booking = await prisma.booking.findFirst({
+      where: {
+        userId: userId,
+        NOT: {
+          status: {
+            in: ["completed", "canceled"]
+          }
+        }
+      }
+    })
+    if(!booking){
+      return res.status(404).json({error: "Booking by user not found"});
+    }
+    res.json(booking);
+  }catch(error){
+    console.log("Error getting booking by user");
+    res.status(500).json({ error: "An error occured while processing your request"});
   }
 })
 

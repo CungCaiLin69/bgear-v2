@@ -28,7 +28,6 @@ export default function BookShopScreen() {
       try{
         const shopsData = await getAllShop();
         setShops(shopsData);
-        console.log("this is shops: ", shops)
       } catch (error){
         console.error("Error fetching shops.")
       } finally{
@@ -41,6 +40,7 @@ export default function BookShopScreen() {
   if (isLoading) {
     return <Text>Loading shops...</Text>;
   }
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -55,10 +55,9 @@ export default function BookShopScreen() {
             title="Book Shop"
             onPress={() => {
               router.push({
-                pathname: '/(home)/shop-detail',
+                pathname: '/(shop)/shop-detail',
                 params: {
-                  shopId: shop.id,
-                  shopName: shop.name
+                  shopId: shop.id
                 }
               })
             }}
