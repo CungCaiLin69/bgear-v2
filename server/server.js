@@ -43,24 +43,142 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.user.id);
+  
+  // Log socket connection with more info for debugging
+  console.log(`Socket connected with ID: ${socket.id}, User: ${socket.user.id}, Role: ${socket.user.role}`);
+
+  // Update the newOrderRequest listener
+  socket.on('newOrderRequest', (newOrder) => {
+    console.log("Received new order via socket:", newOrder);
+    
+    // Ensure the payload is properly formatted
+    const order = {
+      orderId: newOrder.orderId || newOrder.id,
+      address: newOrder.address,
+      vehicleType: newOrder.vehicleType,
+      complaint: newOrder.complaint,
+      locationLat: newOrder.locationLat,
+      locationLng: newOrder.locationLng,
+      timeout: 180
+    };
+    
+    setPendingOrders(prev => [...prev, order]);
+  });
+
+  // Handling order acceptance via socket
+  socket.on('acceptOrder', async ({ orderId }) => {
+    console.log(`Socket event: Repairman ${socket.user.id} accepting order ${orderId}`);
+    
+    try {
+      // Update the order in database
+      const order = await prisma.order.update({
+        where: { id: parseInt(orderId) },
+        data: {
+          repairmanId: socket.user.id,
+          status: 'accepted'
+        }
+      });
+      
+      // Broadcast to all clients that this order was accepted
+      io.emit('orderAccepted', { 
+        orderId: parseInt(orderId), 
+        repairmanId: socket.user.id
+      });
+      
+      console.log(`Order ${orderId} accepted successfully via socket`);
+    } catch (error) {
+      console.error(`Error accepting order ${orderId} via socket:`, error);
+      socket.emit('orderError', {
+        orderId: parseInt(orderId),
+        error: 'Failed to accept order'
+      });
+    }
+  });
+  
+  // Handling order rejection via socket
+  socket.on('rejectOrder', async ({ orderId }) => {
+    console.log(`Socket event: Repairman ${socket.user.id} rejecting order ${orderId}`);
+    
+    try {
+      // You may want to update order status in database to mark as rejected
+      // or simply broadcast the rejection to all clients
+      
+      // Broadcast to all clients that this order was rejected
+      io.emit('orderRejected', { 
+        orderId: parseInt(orderId)
+      });
+      
+      console.log(`Order ${orderId} rejected successfully via socket`);
+    } catch (error) {
+      console.error(`Error rejecting order ${orderId} via socket:`, error);
+    }
+  });
+
+  // When a repairman joins a specific channel to listen for new orders
+  socket.on('joinRepairmanChannel', () => {
+    socket.join('repairman_channel');
+    console.log(`Repairman ${socket.user.id} joined repairman channel`);
+  });
 
   socket.on('joinOrderRoom', ({ orderId }) => {
     socket.join(`order_${orderId}`);
     console.log(`Socket ${socket.id} joined room order_${orderId}`);
   });
 
-  socket.on('sendMessage', ({ orderId, senderId, senderRole, message }) => {
-    console.log('New message:', { orderId, senderId, message });
-    io.to(`order_${orderId}`).emit('newMessage', {
-      senderId,
-      senderRole,
-      message,
-      createdAt: new Date(),
+  socket.on('sendMessage', async (payload) => {
+    console.log('[SERVER] Raw message payload:', payload);
+    
+    // More flexible validation
+    if (!payload.orderId || !payload.message) {
+      return socket.emit('messageError', { 
+        error: 'Missing order ID or message content' 
+      });
+    }
+  
+    // Allow either senderId or phoneNumber as identifier
+    const senderIdentifier = payload.senderId || payload.phoneNumber;
+    if (!senderIdentifier || !payload.senderRole) {
+      return socket.emit('messageError', { 
+        error: 'Missing sender identification' 
+      });
+    }
+  
+    try {
+      const newMessage = await prisma.message.create({
+        data: {
+          orderId: parseInt(payload.orderId),
+          senderId: senderIdentifier,
+          senderRole: payload.senderRole,
+          message: payload.message,
+        },
+      });
+  
+      io.to(`order_${payload.orderId}`).emit('newMessage', newMessage);
+    } catch (error) {
+      console.error('Message save error:', error);
+      socket.emit('messageError', { 
+        error: 'Failed to save message' 
+      });
+    }
+  });
+
+  socket.on('cancelOrder', ({ orderId }) => {
+    // Emit with both spellings
+    io.to(`order_${orderId}`).emit('orderCancelled', { orderId });
+    io.to(`order_${orderId}`).emit('orderCanceled', { orderId });
+  });
+  
+  socket.on('repairmanLocationUpdate', ({ orderId, latitude, longitude }) => {
+    // Broadcast location update to the specific order room
+    io.to(`order_${orderId}`).emit('locationUpdate', { 
+      orderId,
+      lat: latitude, 
+      lng: longitude 
     });
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected');
+    console.log(`Socket disconnected: ${socket.id}, User: ${socket.user?.id}`);
   });
 });
 
@@ -335,9 +453,77 @@ app.put('/api/change-password', verifyToken, async (req, res) => {
   }
 });
 
+app.get('/api/users/:userId', verifyToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phoneNumber: true,
+        profilePicture: true,
+        role: true,
+        is_repairman: true,
+        Repairman: {
+          select: {
+            id: true,
+            skills: true,
+            servicesProvided: true,
+            isVerified: true,
+            profilePicture: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+app.get('/api/active-order', verifyToken, async (req, res) => {
+  try {
+    const activeOrder = await prisma.order.findFirst({
+      where: {
+        userId: req.user.id,
+        status: {
+          notIn: ['completed', 'canceled', 'rejected']
+        }
+      },
+      include: {
+        repairman: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                profilePicture: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({ order: activeOrder });
+  } catch (error) {
+    console.error('Error fetching active order:', error);
+    res.status(500).json({ error: 'Failed to fetch active order' });
+  }
+});
+
 // Become a repairman endpoint
 app.post('/api/become-repairman', verifyToken, async (req, res) => {
-  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
+  const { skills, servicesProvided, profilePicture, phoneNumber, servicesWithPrices } = req.body;
   const userId = req.user.id;
 
   try {
@@ -361,7 +547,8 @@ app.post('/api/become-repairman', verifyToken, async (req, res) => {
         servicesProvided,
         profilePicture: profilePicture || null,
         phoneNumber,
-        isVerified: false,
+        servicesWithPrices,
+        isVerified: true,
       },
     });
 
@@ -402,11 +589,11 @@ app.get('/api/check-repairman', verifyToken, async (req, res) => {
 
 // Edit repairman profile
 app.put('/api/edit-repairman', verifyToken, async (req, res) => {
-  const { skills, servicesProvided, profilePicture, phoneNumber } = req.body;
+  const { skills, servicesProvided, profilePicture, phoneNumber, servicesWithPrices } = req.body;
   const userId = req.user.id;
 
   try {
-    console.log(`Editing repairman for user: ${userId}`); // Debug log ✅
+    console.log(`Editing repairman for user: ${userId}`); 
 
     const repairman = await prisma.repairman.findUnique({ where: { userId } });
 
@@ -423,7 +610,6 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
       await sendVerificationCode(phoneNumber);
     }
 
-    // 🔹 Ensure proper data format for skills & services
     const updatedSkills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
     const updatedServices = Array.isArray(servicesProvided) ? servicesProvided : servicesProvided.split(',').map(s => s.trim());
 
@@ -434,6 +620,7 @@ app.put('/api/edit-repairman', verifyToken, async (req, res) => {
         servicesProvided: updatedServices,
         profilePicture: profilePicture || repairman.profilePicture,
         phoneNumber: phoneNumber || repairman.phoneNumber,
+        servicesWithPrices,
         isVerified,
       },
     });
@@ -577,7 +764,7 @@ app.post('/api/close-shop', verifyToken, async (req, res) => {
 });
 
 app.get('/api/repairman/orders', verifyToken, async (req, res) => {
-  const repairmanId = parseInt(req.user.id);
+  const repairmanId = req.user.id;
 
   const orders = await prisma.order.findMany({
     where: { repairmanId },
@@ -613,7 +800,18 @@ app.get('/api/shop/bookings', verifyToken, async (req, res) => {
 })
 
 app.post('/order/create', verifyToken, async (req, res) => {
-  const { address, vehicleType, complaint, locationLat, locationLng } = req.body;
+  const {
+    address,
+    vehicleType,
+    complaint,
+    locationLat,
+    locationLng,
+    vehicleBrand,
+    vehicleModel,
+    vehicleYear,
+    vehicleMileage,
+    estimatedPrice,
+  } = req.body;
 
   if (!address || !vehicleType || !complaint || !locationLat || !locationLng) {
     return res.status(400).json({ error: 'Missing fields' });
@@ -623,23 +821,41 @@ app.post('/order/create', verifyToken, async (req, res) => {
     const order = await prisma.order.create({
       data: {
         userId: req.user.id,
-        locationLat: parseFloat(locationLat),
-        locationLng: parseFloat(locationLng),
+        address,
         vehicleType,
         complaint,
-        status: 'requested',
+        locationLat,
+        locationLng,
+        vehicleBrand: vehicleBrand || null,
+        vehicleModel: vehicleModel || null,
+        vehicleYear: vehicleYear ? parseInt(vehicleYear) : null,
+        vehicleMileage: vehicleMileage ? parseInt(vehicleMileage) : null,
+        price: estimatedPrice || null,
       }
     });
 
-    io.emit('newOrderRequest', {
+    console.log('Order created successfully:', order);
+
+    // Create the order data object with all necessary fields
+    const orderData = {
       orderId: order.id,
+      address: order.address, 
       locationLat: order.locationLat,
       locationLng: order.locationLng,
-      address,
       vehicleType: order.vehicleType,
       complaint: order.complaint,
-    });
+      userId: req.user.id,
+      createdAt: order.createdAt
+    };
 
+    // Emit to all connected clients
+    io.emit('newOrderRequest', orderData);
+    
+    // Also emit specifically to the repairman channel
+    io.to('repairman_channel').emit('newOrderRequest', orderData);
+
+    console.log('Emitted newOrderRequest events with data:', orderData);
+    
     return res.status(201).json({ success: true, order });
   } catch (error) {
     console.error('Create Order Error:', error);
@@ -682,18 +898,28 @@ app.get('/api/order/:orderId', verifyToken, async (req, res) => {
 
   try {
     const order = await prisma.order.findUnique({
-      where: {
-        id: parseInt(orderId), // Make sure orderId is an integer
-      },
+      where: { id: parseInt(orderId) },
       include: {
         user: {
           select: {
             id: true,
             name: true,
             phoneNumber: true,
-          },
+            profilePicture: true
+          }
         },
-      },
+        repairman: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                profilePicture: true,
+                phoneNumber: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!order) {
@@ -711,19 +937,21 @@ app.post('/order/accept/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
 
   try {
-    if (!req.user.is_repairman) {
-      return res.status(403).json({ error: 'Only repairmen can accept orders' });
-    }
-
     const order = await prisma.order.update({
       where: { id: parseInt(orderId) },
       data: {
-        repairmanId: req.user.id,
+        repairmanId: req.user.id, 
         status: 'accepted'
       }
     });
-
-    io.emit('orderAccepted', { orderId: parseInt(orderId) });
+    
+    console.log(`Order ${orderId} accepted by repairman ${req.user.id}`);
+    
+    // Emit event to let everyone know the order is accepted
+    io.emit('orderAccepted', { 
+      orderId: parseInt(orderId),
+      repairmanId: req.user.id 
+    });
 
     return res.status(200).json({ success: true, order });
   } catch (error) {
@@ -732,18 +960,21 @@ app.post('/order/accept/:orderId', verifyToken, async (req, res) => {
   }
 });
 
+// In your server code (orderapi.txt or similar)
 app.post('/order/reject/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
 
   try {
-    // Reject = delete the order
-    await prisma.order.delete({
-      where: { id: parseInt(orderId) }
+    const order = await prisma.order.update({
+      where: { id: parseInt(orderId) },
+      data: { 
+        status: 'rejected',
+        rejectedAt: new Date() 
+      }
     });
 
     io.emit('orderRejected', { orderId: parseInt(orderId) });
-
-    return res.status(200).json({ success: true, message: 'Order rejected' });
+    return res.status(200).json({ success: true, order });
   } catch (error) {
     console.error('Reject Order Error:', error);
     return res.status(500).json({ error: 'Failed to reject order' });
@@ -754,11 +985,37 @@ app.post('/order/cancel/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
 
   try {
-    await prisma.order.delete({
-      where: { id: parseInt(orderId) }
+    const order = await prisma.order.update({
+      where: { id: parseInt(orderId) },
+      data: { 
+        status: 'canceled',
+        canceledAt: new Date() 
+      },
+      include: {
+        user: true,
+        repairman: {
+          include: {
+            user: true
+          }
+        }
+      }
     });
 
-    return res.status(200).json({ success: true, message: 'Order cancelled' });
+    // Emit with both spellings for backward compatibility
+    io.to(`order_${orderId}`).emit('orderCanceled', { 
+      orderId: parseInt(orderId),
+      userId: order.userId,
+      repairmanId: order.repairmanId 
+    });
+    
+    // Also emit with 'cancelled' spelling
+    io.to(`order_${orderId}`).emit('orderCancelled', { 
+      orderId: parseInt(orderId),
+      userId: order.userId,
+      repairmanId: order.repairmanId 
+    });
+
+    return res.status(200).json({ success: true, order });
   } catch (error) {
     console.error('Cancel Order Error:', error);
     return res.status(500).json({ error: 'Failed to cancel order' });
@@ -772,14 +1029,43 @@ app.post('/order/finish/:orderId', verifyToken, async (req, res) => {
     const order = await prisma.order.update({
       where: { id: parseInt(orderId) },
       data: {
-        status: 'completed'
+        status: 'completed',
+      },
+      include: {
+        user: true,
+        repairman: {
+          include: {
+            user: true
+          }
+        }
       }
+    });
+
+    // Notify both parties
+    io.to(`order_${orderId}`).emit('orderCompleted', { 
+      orderId: parseInt(orderId),
+      userId: order.userId,
+      repairmanId: order.repairmanId 
     });
 
     return res.status(200).json({ success: true, order });
   } catch (error) {
     console.error('Finish Order Error:', error);
     return res.status(500).json({ error: 'Failed to finish order' });
+  }
+});
+
+app.get('/api/messages/:orderId', verifyToken, async (req, res) => {
+  try {
+    const messages = await prisma.message.findMany({
+      where: { orderId: parseInt(req.params.orderId) },
+      orderBy: { createdAt: 'asc' }
+    });
+    
+    res.json({ messages });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 

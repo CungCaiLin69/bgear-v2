@@ -27,6 +27,20 @@ type LocationType = {
   longitude: number;
 };
 
+const AVAILABLE_SERVICES = [
+  { id: 'change_tires', name: 'Change Tires', price: 150000 },
+  { id: 'replace_oil', name: 'Oil Change', price: 100000 },
+  { id: 'battery_replacement', name: 'Battery Replacement', price: 200000 },
+  { id: 'brake_service', name: 'Brake Service', price: 175000 },
+  { id: 'engine_repair', name: 'Engine Repair', price: 300000 },
+  { id: 'tune_up', name: 'Tune-Up', price: 120000 },
+  { id: 'diagnostics', name: 'Diagnostics', price: 90000 },
+  { id: 'chain_repair', name: 'Chain Repair', price: 110000 },
+  { id: 'flat_tire', name: 'Flat Tire', price: 80000 },
+  { id: 'parts_replacement', name: 'Parts Replacement', price: 220000 },
+  { id: 'other', name: 'Other (Describe your problem)', price: 0 }
+];
+
 export default function OrderRepairmanScreen() {
   const { socket, isConnected, reconnect } = useSocket();
   const { user, userToken } = useAuth();
@@ -37,6 +51,26 @@ export default function OrderRepairmanScreen() {
   const [vehicleType, setVehicleType] = useState<string | null>(null);
   const [complaint, setComplaint] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [vehicleBrand, setVehicleBrand] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('');
+  const [vehicleMileage, setVehicleMileage] = useState('');
+
+  // New problem selection state
+  const [problemOpen, setProblemOpen] = useState(false);
+  const [selectedProblem, setSelectedProblem] = useState<string | null>(null);
+  const [customProblem, setCustomProblem] = useState('');
+  const [problemItems, setProblemItems] = useState<any[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [yearOpen, setYearOpen] = useState(false);
+
+  const [brandItems, setBrandItems] = useState<{ label: string; value: string }[]>([]);
+  const [modelItems, setModelItems] = useState<{ label: string; value: string }[]>([]);
+  const [yearItems, setYearItems] = useState<{ label: string; value: string }[]>([]);
+  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
   
   // Connection state
   const [networkAvailable, setNetworkAvailable] = useState<boolean>(true);
@@ -58,6 +92,9 @@ export default function OrderRepairmanScreen() {
     { label: 'Motorcycle', value: 'motorcycle' },
     { label: 'Bike', value: 'bike' },
   ]);
+
+  const SUPPORTED_CAR_BRANDS = ['Toyota', 'Honda', 'Mazda', 'BMW', 'Nissan', 'Mitsubishi', 'Mercedes-Benz'];
+  const SUPPORTED_MOTORCYCLE_BRANDS = ['Yamaha', 'Suzuki', 'Kawasaki', 'Harley-Davidson'];
 
   // Check network connection
   const checkNetworkConnection = useCallback(async () => {
@@ -151,6 +188,15 @@ export default function OrderRepairmanScreen() {
   }, []);
 
   useEffect(() => {
+    const formattedItems = AVAILABLE_SERVICES.map(service => ({
+      label: `${service.name} (Rp ${service.price.toLocaleString()})`,
+      value: service.id,
+      price: service.price
+    }));
+    setProblemItems(formattedItems);
+  }, []);
+
+  useEffect(() => {
     initializeLocation();
   }, [initializeLocation]);
 
@@ -205,6 +251,47 @@ export default function OrderRepairmanScreen() {
     }
   };  
 
+  const fetchVehicleModels = async (brand: string, type: any) => {
+  const apiKey = 'ail9yVqrAHSTnxj6ttYJyA==eoJprJj1HYemS56f';
+  const endpoint =
+    type === 'car'
+      ? `https://api.api-ninjas.com/v1/car?make=${brand}`
+      : `https://api.api-ninjas.com/v1/motorcycles?make=${brand}`;
+
+  try {
+    const res = await fetch(endpoint, {
+      headers: { 'X-Api-Key': apiKey },
+    });
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      console.warn('Unexpected API format:', data);
+      setModelItems([]);
+      setYearItems([]);
+      return;
+    }
+
+    const models = Array.from(new Set(data.map((item: any) => item.model)));
+    const years = Array.from(new Set(data.map((item: any) => Number(item.year)))).sort((a, b) => b - a);
+
+    setModelItems(models.map(m => ({ label: m, value: m })));
+    setYearItems(years.map(y => ({ label: `${y}`, value: `${y}` })));
+  } catch (err) {
+    console.error('Failed to fetch vehicle data:', err);
+    setModelItems([]);
+    setYearItems([]);
+  }
+};
+
+useEffect(() => {
+  const selected = problemItems.find(item => item.value === selectedProblem);
+  if (selected) {
+    setEstimatedPrice(selected.price || 0);
+    const label = selected.label?.split(' (')[0]; 
+    setComplaint(selected.value === 'other' ? '' : label);
+  }
+}, [selectedProblem, problemItems]);
+
   const validateForm = () => {
     const errors = [];
     
@@ -216,8 +303,12 @@ export default function OrderRepairmanScreen() {
       errors.push("Vehicle type is required");
     }
     
-    if (!complaint || complaint.trim().length < 3) {
-      errors.push("Please provide a valid complaint description");
+    if (!selectedProblem) {
+      errors.push("Please select a problem or 'Other'");
+    }
+    
+    if (selectedProblem === 'other' && (!customProblem || customProblem.trim().length < 3)) {
+      errors.push("Please provide a valid problem description");
     }
     
     return errors;
@@ -290,13 +381,26 @@ export default function OrderRepairmanScreen() {
 
   const processOrder = async () => {
     setIsSubmitting(true);
-  
+
+    // Determine the final complaint text
+    const finalComplaint = selectedProblem === 'other' ? customProblem : complaint;
+    
+    // Find selected service to get the price info
+    const selectedService = problemItems.find(item => item.value === selectedProblem);
+    const estimatedPrice = selectedService?.price;
+    
     const payload = {
       address: locationData!.address,  
       vehicleType: vehicleType!,
-      complaint,
+      complaint: finalComplaint,
       locationLat: locationData!.latitude,
       locationLng: locationData!.longitude,
+      vehicleBrand: vehicleBrand || undefined,
+      vehicleModel: vehicleModel || undefined, 
+      vehicleYear: vehicleYear || undefined,
+      vehicleMileage: vehicleMileage || undefined,
+      serviceId: selectedProblem !== 'other' ? selectedProblem : undefined,
+      estimatedPrice: estimatedPrice
     };
   
     if (!userToken) {
@@ -317,7 +421,6 @@ export default function OrderRepairmanScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
-        // Use the controller's signal instead of AbortSignal.timeout
         signal: controller.signal,
       });
       
@@ -519,20 +622,126 @@ export default function OrderRepairmanScreen() {
               style={styles.dropdown}
               dropDownContainerStyle={styles.dropdownContainer}
               placeholderStyle={styles.dropdownPlaceholder}
+              listMode='MODAL'
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Problem Description</Text>
-            <TextInput
-              placeholder="Describe the issue with your vehicle"
-              value={complaint}
-              onChangeText={setComplaint}
-              style={styles.textArea}
-              multiline={true}
-              numberOfLines={4}
-            />
-          </View>
+          {vehicleType ? (
+            <>
+              {/* BRAND */}
+              <Text style={styles.label}>Vehicle Brand</Text>
+              <DropDownPicker
+                open={brandOpen}
+                setOpen={setBrandOpen}
+                value={vehicleBrand}
+                setValue={(callback) => {
+                  const value = callback(vehicleBrand);
+                  setVehicleBrand(value);
+                  fetchVehicleModels(value, vehicleType);
+                }}
+                items={
+                  (vehicleType === 'car' ? SUPPORTED_CAR_BRANDS : SUPPORTED_MOTORCYCLE_BRANDS)
+                    .map(b => ({ label: b, value: b }))
+                }
+                setItems={setBrandItems}
+                multiple={false}
+                placeholder="Select a brand"
+                style={styles.dropdown}
+                listMode='MODAL'
+              />
+
+              {/* MODEL */}
+              <Text style={styles.label}>Vehicle Model</Text>
+              <DropDownPicker
+                open={modelOpen}
+                setOpen={setModelOpen}
+                value={vehicleModel}
+                setValue={setVehicleModel}
+                items={modelItems}
+                setItems={setModelItems}
+                multiple={false}
+                placeholder="Select a model"
+                style={styles.dropdown}
+                disabled={!vehicleBrand}
+                listMode='MODAL'
+              />
+
+              {/* YEAR */}
+              <Text style={styles.label}>Year</Text>
+              <DropDownPicker
+                open={yearOpen}
+                setOpen={setYearOpen}
+                value={vehicleYear}
+                setValue={setVehicleYear}
+                items={yearItems}
+                setItems={setYearItems}
+                multiple={false}
+                placeholder="Select a year"
+                style={styles.dropdown}
+                disabled={!vehicleModel}
+                listMode='MODAL'
+              />
+
+              {/* MILEAGE */}
+              <Text style={styles.label}>Mileage (in km)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 50000"
+                value={vehicleMileage}
+                onChangeText={setVehicleMileage}
+                keyboardType="numeric"
+              />
+            </>
+          ) : null}
+
+          {/* Problem Selection Dropdown */}
+          {vehicleType && (
+            <View style={[styles.formGroup, { zIndex: 900 }]}>
+              <Text style={styles.label}>What's the problem?</Text>
+              {servicesLoading ? (
+                <View style={styles.loadingServices}>
+                  <ActivityIndicator size="small" color="#00897B" />
+                  <Text>Loading services...</Text>
+                </View>
+              ) : (
+                <DropDownPicker
+                  open={problemOpen}
+                  value={selectedProblem}
+                  items={problemItems}
+                  setOpen={setProblemOpen}
+                  setValue={setSelectedProblem}
+                  setItems={setProblemItems}
+                  placeholder="Select Service Needed"
+                  searchable={false}
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  listMode='MODAL'
+                />
+              )}
+            </View>
+          )}
+
+          {selectedProblem && selectedProblem !== 'other' && estimatedPrice !== null && (
+            <Text style={{ marginTop: 8, fontWeight: '600', color: '#333' }}>
+              Estimated Price: Rp {estimatedPrice.toLocaleString()}
+            </Text>
+          )}
+
+          {/* Custom problem description for "Other" option */}
+          {selectedProblem === 'other' && (
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Describe Your Problem</Text>
+              <TextInput
+                placeholder="Detail the issue with your vehicle"
+                value={customProblem}
+                onChangeText={setCustomProblem}
+                style={styles.textArea}
+                multiline={true}
+                numberOfLines={4}
+              />
+            </View>
+          )}
 
           <TouchableOpacity 
             onPress={handleOrder} 
@@ -715,5 +924,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingServices: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+    gap: 8,
   },
 });

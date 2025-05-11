@@ -15,6 +15,7 @@ export type User = {
 
 // Define the repairman type
 export type Repairman = {
+  servicesWithPrices: any;
   id: number;
   userId: string;
   name: string;
@@ -50,15 +51,18 @@ export type AuthContextType = {
     skills: string[];
     servicesProvided: string[];
     profilePicture?: string | null;
-    phoneNumber: string
-  }) => Promise<void>; 
+    phoneNumber: string;
+    servicesWithPrices?: Record<string, number>;
+  }) => Promise<void>;  
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   isLoading: boolean;
   becomeRepairman: (repairmanData: {
     name: string;
     skills: string[];
     servicesProvided: string[];
+    servicesWithPrices?: Record<string, number>; 
     profilePicture?: string | null;
+    phoneNumber: string;
   }) => Promise<void>;
   checkRepairmanStatus: () => Promise<void>;
   resignAsRepairman: () => Promise<void>;
@@ -266,7 +270,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }): JSX.E
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`, // Use retrieved token
           },
-          body: JSON.stringify(repairmanData),
+          body: JSON.stringify({ ...repairmanData }),
       });
 
       const data = await response.json();
