@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSocket } from '../../utils/SocketProvider';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Card } from '@rneui/base';
 
 interface User {
   id: string;
@@ -249,6 +250,19 @@ export default function HomePage() {
             )}
           </View>
         </View>
+          
+          {userHaveBooking && (
+            <Card>
+
+              <TouchableOpacity
+                style={[styles.proButton, styles.shopButton]}
+                onPress={() => router.push('/shop-dashboard')}
+              >
+                <Card.Title>Check your booking</Card.Title>
+              </TouchableOpacity>
+            </Card>
+          )}
+
       </ScrollView>
     </SafeAreaView>
   );
