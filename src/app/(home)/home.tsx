@@ -67,6 +67,25 @@ export default function HomePage() {
     }
   };
 
+  const getBookingByUser = async() => {
+    try{
+      const response = await fetch('http://10.0.2.2:3000/api/get-booking-by-user', {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+      },
+      })
+      const data = await response.json();
+      setUserHaveBooking(data);
+      console.log("booking by user: ", data);
+    }catch(error){
+      console.log("Failed to fetch booking by user", error);
+    }
+  }
+
+  useEffect(() => {
+    getBookingByUser();
+  }, [])
+  
   useEffect(() => {
     if (!userToken || !user || user.is_repairman) {
       setLoading(false);
@@ -105,26 +124,6 @@ export default function HomePage() {
         <ActivityIndicator size="large" color="#3E64FF" />
       </View>
     );
-  }
-
-  useEffect(() => {
-    getBookingByUser();
-  }, [])
-  
-
-  const getBookingByUser = async() => {
-    try{
-      const response = await fetch('http://10.0.2.2:3000/api/get-booking-by-user', {
-        headers: {
-          Authorization: `Bearer ${userToken}`,
-      },
-      })
-      const data = await response.json();
-      setUserHaveBooking(data);
-      console.log("booking by user: ", data);
-    }catch(error){
-      console.log("Failed to fetch booking by user", error);
-    }
   }
 
   return (
@@ -196,7 +195,7 @@ export default function HomePage() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/')}
+            onPress={() => router.push('/(shop)/book-shop')}
           >
             <View style={[styles.cardIcon, styles.shopIcon]}>
               <Icon name="business" size={24} color="#FF7D3B" />
@@ -234,7 +233,7 @@ export default function HomePage() {
             {user.has_shop ? (
               <TouchableOpacity
                 style={[styles.proButton, styles.shopButton]}
-                onPress={() => router.push('/(home)/edit-shop')}
+                onPress={() => router.push('/shop-dashboard')}
               >
                 <Icon name="analytics" size={20} color="#fff" />
                 <Text style={styles.proButtonText}>Shop Dashboard</Text>
