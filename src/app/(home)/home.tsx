@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSocket } from '../../utils/SocketProvider';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Card } from '@rneui/base';
 
 interface User {
   id: string;
@@ -40,6 +41,7 @@ export default function HomePage() {
   const { userToken, user } = useAuth(); 
   const { socket } = useSocket();
   const router = useRouter();
+  const [userHaveBooking, setUserHaveBooking] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,6 +68,25 @@ export default function HomePage() {
     }
   };
 
+  const getBookingByUser = async() => {
+    try{
+      const response = await fetch('http://10.0.2.2:3000/api/get-booking-by-user', {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+      },
+      })
+      const data = await response.json();
+      setUserHaveBooking(data);
+      console.log("booking by user: ", data);
+    }catch(error){
+      console.log("Failed to fetch booking by user", error);
+    }
+  }
+
+  useEffect(() => {
+    getBookingByUser();
+  }, [])
+  
   useEffect(() => {
     if (!userToken || !user || user.is_repairman) {
       setLoading(false);
@@ -175,7 +196,7 @@ export default function HomePage() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/')}
+            onPress={() => router.push('/(shop)/book-shop')}
           >
             <View style={[styles.cardIcon, styles.shopIcon]}>
               <Icon name="business" size={24} color="#FF7D3B" />
@@ -213,7 +234,7 @@ export default function HomePage() {
             {user.has_shop ? (
               <TouchableOpacity
                 style={[styles.proButton, styles.shopButton]}
-                onPress={() => router.push('/(home)/edit-shop')}
+                onPress={() => router.push('/shop-dashboard')}
               >
                 <Icon name="analytics" size={20} color="#fff" />
                 <Text style={styles.proButtonText}>Shop Dashboard</Text>
@@ -229,6 +250,19 @@ export default function HomePage() {
             )}
           </View>
         </View>
+          
+          {userHaveBooking && (
+            <Card>
+
+              <TouchableOpacity
+                style={[styles.proButton, styles.shopButton]}
+                onPress={() => router.push('/shop-dashboard')}
+              >
+                <Card.Title>Check your booking</Card.Title>
+              </TouchableOpacity>
+            </Card>
+          )}
+
       </ScrollView>
     </SafeAreaView>
   );

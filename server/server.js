@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 const { Server } = require('socket.io');
 const app = express();
 const http = require('http');
+const { GoTrueAdminApi } = require('@supabase/supabase-js');
 const httpServer = http.createServer(app);
 
 const JWT_SECRET = 'CungCaiLin69';
@@ -94,6 +95,36 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  // Handling booking acceptance via socket
+  socket.on("acceptBooking", async ({bookingId}) => {
+    console.log(`Socket event: Shop accepting booking ${bookingId}`)
+
+    try{
+      // update the booking in db
+      const booking = await prisma.booking.update({
+        where: {
+          id: parseInt(bookingId),
+        },
+        data: {
+          status: "accepted"
+        }
+      });
+
+      // Broadcast that this booking was accepted
+      io.emit("bookingAccepted", {
+        bookingId: parseInt(bookingId)
+      })
+
+      console.log(`Booking ${bookingId} accepted sucessfully via socket`);
+    }catch(error){
+      console.error(`Error accepting booking ${bookingId} via socket`, error);
+      socket.emit("bookingError", {
+        bookingId: parseInt(bookingId),
+        error: "Failed to accept booking"
+      })
+    }
+  })
   
   // Handling order rejection via socket
   socket.on('rejectOrder', async ({ orderId }) => {
@@ -113,6 +144,20 @@ io.on('connection', (socket) => {
       console.error(`Error rejecting order ${orderId} via socket:`, error);
     }
   });
+
+  socket.on("rejectBooking", async ({bookingId}) => {
+    console.log(`Socket event: rejecting booking ${bookingId}`);
+
+    try{
+      io.emit("bookingRejected", {
+        bookingId: parseInt(bookingId)
+      });
+
+      console.log(`Booking ${bookingId} rejected successfully via socket`);
+    }catch(error){
+      console.error(`Error rejecting booking ${bookingId} via socket:`, error);
+    }
+  })
 
   // When a repairman joins a specific channel to listen for new orders
   socket.on('joinRepairmanChannel', () => {
@@ -774,6 +819,31 @@ app.get('/api/repairman/orders', verifyToken, async (req, res) => {
   res.json({ orders });
 });
 
+app.get('/api/shop/bookings', verifyToken, async (req, res) => {
+  const shopOwnerId = req.user.id;
+  try{
+    const bookings = await prisma.booking.findMany({
+      where: {
+        shop: {
+          owner: {
+            id: shopOwnerId
+          }
+        }
+      },
+      include: {
+        shop: {
+          include: {
+            owner: true
+          }
+        }
+      }
+    })
+    res.json({ bookings });
+  }catch(error){
+    console.error("Failed in getting bookings: ", error);
+  }
+})
+
 app.post('/order/create', verifyToken, async (req, res) => {
   const {
     address,
@@ -838,6 +908,36 @@ app.post('/order/create', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/book/create', verifyToken, async(req, res) => {
+  const { shopId, datetime, issue} = req.body;
+
+  if(!shopId || !datetime || !issue){
+    return res.status(400).json({ error: 'Missing fields'});
+  }
+
+  try{
+    const booking = await prisma.booking.create({
+      data: {
+        userId: req.user.id,
+        shopId: parseInt(shopId),
+        datetime: datetime,
+        issue: issue
+      }
+    })
+
+    io.emit('newBookingRequest', {
+        bookingId: booking.id,
+        datetime: booking.datetime,
+        issue: booking.issue
+    });
+
+    return res.status(201).json({ success: true, booking});
+  }catch(error){
+    console.error('Error in booking shop', error);
+    return res.status(500).json({ error: 'Failed to book shop' });
+  }
+});
+
 app.get('/api/order/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
 
@@ -878,6 +978,43 @@ app.get('/api/order/:orderId', verifyToken, async (req, res) => {
   }
 });
 
+app.get("/api/booking/:bookingId", verifyToken, async(req, res) => {
+  const {bookingId} = req.params;
+
+  try{
+    const booking = await prisma.booking.findUnique({
+      where: {
+        id: parseInt(bookingId)
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phoneNumber: true,
+            profilePicture: true
+          }
+        },
+        shop: {
+          select: {
+            name: true,
+            location: true
+          }
+        }
+      }
+    });
+
+    if(!booking){
+      return res.status(404).json({error: "Booking not found"});
+    }
+
+    res.json({booking});
+  }catch(error){
+    console.error("Error fetching booking: ", error);
+    res.status(500).json({error: "Failed to fetch booking"});
+  }
+});
+
 app.post('/order/accept/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
 
@@ -905,6 +1042,31 @@ app.post('/order/accept/:orderId', verifyToken, async (req, res) => {
   }
 });
 
+app.post("/booking/accept/:bookingId", verifyToken, async(req, res) => {
+  const {bookingId} = req.params;
+  
+  try{
+    const booking = await prisma.booking.update({
+      where: {
+        id: bookingId
+      },
+      data: {
+        status: "accepted"
+      }
+    })
+    console.log(`Booking ${bookingId} accepted by shop!`);
+
+    io.emit("bookingAccepted", {
+      bookingId: parseInt(bookingId)
+    });
+
+    return res.status(200).json({ success: true, booking});
+  }catch(error){
+    console.error("Accept Booking Error: ", error);
+    return res.status(500).json({ error: "Failed to accept booking "});
+  }
+})
+
 // In your server code (orderapi.txt or similar)
 app.post('/order/reject/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
@@ -925,6 +1087,26 @@ app.post('/order/reject/:orderId', verifyToken, async (req, res) => {
     return res.status(500).json({ error: 'Failed to reject order' });
   }
 });
+
+app.post("/booking/reject/:bookingId", verifyToken, async (req, res) => {
+  const {bookingId} = req.params;
+
+  try{
+    const booking = await prisma.booking.update({
+      where: {
+        id: parseInt(bookingId)
+      },
+      data: {
+        status: "rejected"
+      }
+    })
+
+    io.emit("bookingRejected", {bookingId: parseInt(bookingId)});
+    return res.status(200).json({success: true, booking});
+  }catch(error){
+    return res.status(500).json({error: "Failed to reject booking"});
+  }
+})
 
 app.post('/order/cancel/:orderId', verifyToken, async (req, res) => {
   const { orderId } = req.params;
@@ -1013,6 +1195,60 @@ app.get('/api/messages/:orderId', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
+
+app.get('/api/get-all-shop', verifyToken, async (req, res) => {
+  try{
+    const shops = await prisma.shop.findMany();
+    res.json(shops);
+  }catch(error){
+    console.error('Error getting all shops:', error);
+    res.status(500).json({ error: 'An error occured while processing your request.'})
+  }
+})
+
+app.get('/api/get-shop-by-id/:shopId', verifyToken, async (req, res) => {
+  const {shopId} = req.params
+  try{
+    if (!shopId) {
+      return res.status(400).json({ error: 'Shop ID is required' });
+    }
+    const shop = await prisma.shop.findUnique({
+      where: {
+        id: parseInt(shopId)
+      }
+    })
+    if(!shop){
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(shop);
+  }catch(error){
+    console.error('Error getting shop:', error);
+    res.status(500).json({ error: 'An error occured while processing your request.'})
+  }
+})
+
+app.get('/api/get-booking-by-user', verifyToken, async(req, res) => {
+  const userId = req.user.id;
+  try{
+    const booking = await prisma.booking.findFirst({
+      where: {
+        userId: userId,
+        NOT: {
+          status: {
+            in: ["completed", "canceled"]
+          }
+        }
+      }
+    })
+    if(!booking){
+      return res.status(404).json({error: "Booking by user not found"});
+    }
+    res.json(booking);
+  }catch(error){
+    console.log("Error getting booking by user");
+    res.status(500).json({ error: "An error occured while processing your request"});
+  }
+})
 
 // Example of a protected endpoint
 app.get('/api/protected', verifyToken, (req, res) => {
