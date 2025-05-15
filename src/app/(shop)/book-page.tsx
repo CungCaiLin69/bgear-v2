@@ -8,11 +8,27 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
 } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { useAuth } from "@/src/utils/AuthProvider";
 import { router, useLocalSearchParams } from "expo-router";
 import CustomDateTimePicker from "@/src/components/DateTimePicker";
+import DropDownPicker from "react-native-dropdown-picker";
+import { Ionicons } from "@expo/vector-icons";
+
+// Define dropdown item type
+type DropdownItem = {
+  label: string;
+  value: string;
+};
+
+// Vehicle data - these would come from your API in a real scenario
+const SUPPORTED_CAR_BRANDS = ["Toyota", "Honda", "Ford", "BMW", "Mercedes", "Tesla", "Nissan"];
+const SUPPORTED_MOTORCYCLE_BRANDS = ["Honda", "Yamaha", "Kawasaki", "Ducati", "Harley-Davidson"];
 
 export type Shop = {
   id: number;
@@ -24,23 +40,85 @@ export type Shop = {
   phoneNumber?: string;
 };
 
-export default function BookPageScreen({}) {
+export default function BookPageScreen() {
   const { userToken } = useAuth();
   const { socket, isConnected, reconnect } = useSocket();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { shopId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [shop, setShop] = useState<any>(null);
-  const [issue, setIssue] = useState('');
+  const [issue, setIssue] = useState("");
 
   // DateTime state
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Connection state
   const [networkAvailable, setNetworkAvailable] = useState<boolean>(true);
   const [connectionChecking, setConnectionChecking] = useState<boolean>(false);
+
+  // Vehicle dropdown states
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicleType, setVehicleType] = useState<string | null>(null);
+  const [vehicleItems, setVehicleItems] = useState<DropdownItem[]>([
+    { label: "Car", value: "car" },
+    { label: "Motorcycle", value: "motorcycle" },
+  ]);
+
+  // Brand dropdown states
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [vehicleBrand, setVehicleBrand] = useState<string | null>(null);
+  const [brandItems, setBrandItems] = useState<DropdownItem[]>([]);
+
+  // Model dropdown states
+  const [modelOpen, setModelOpen] = useState(false);
+  const [vehicleModel, setVehicleModel] = useState<string | null>(null);
+  const [modelItems, setModelItems] = useState<DropdownItem[]>([]);
+
+  // Year dropdown states
+  const [yearOpen, setYearOpen] = useState(false);
+  const [vehicleYear, setVehicleYear] = useState<string | null>(null);
+  const [yearItems, setYearItems] = useState<DropdownItem[]>(
+    Array.from({ length: 30 }, (_, i) => {
+      const year = new Date().getFullYear() - i;
+      return { label: year.toString(), value: year.toString() };
+    })
+  );
+
+  // Mileage state
+  const [vehicleMileage, setVehicleMileage] = useState("");
+
+  // Control dropdown closing order
+  useEffect(() => {
+    if (vehicleOpen) {
+      setBrandOpen(false);
+      setModelOpen(false);
+      setYearOpen(false);
+    }
+  }, [vehicleOpen]);
+
+  useEffect(() => {
+    if (brandOpen) {
+      setVehicleOpen(false);
+      setModelOpen(false);
+      setYearOpen(false);
+    }
+  }, [brandOpen]);
+
+  useEffect(() => {
+    if (modelOpen) {
+      setVehicleOpen(false);
+      setBrandOpen(false);
+      setYearOpen(false);
+    }
+  }, [modelOpen]);
+
+  useEffect(() => {
+    if (yearOpen) {
+      setVehicleOpen(false);
+      setBrandOpen(false);
+      setModelOpen(false);
+    }
+  }, [yearOpen]);
 
   const handleDateChange = (date: any) => {
     setSelectedDate(date);
@@ -70,6 +148,7 @@ export default function BookPageScreen({}) {
 
   useEffect(() => {
     getShop();
+    checkNetworkConnection();
     console.log("this is shop id:", shopId);
   }, [shopId, userToken]);
 
@@ -99,7 +178,68 @@ export default function BookPageScreen({}) {
     }
   };
 
+  const fetchVehicleModels = async (brand: string | null, type: string | null) => {
+    // This would be an API call in a real app
+    // For now, we'll simulate with dummy data
+    setModelItems([]);
+    setVehicleModel(null);
+    
+    setTimeout(() => {
+      if (type === 'car') {
+        if (brand === 'Toyota') {
+          setModelItems([
+            { label: 'Camry', value: 'Camry' },
+            { label: 'Corolla', value: 'Corolla' },
+            { label: 'RAV4', value: 'RAV4' },
+          ]);
+        } else if (brand === 'Honda') {
+          setModelItems([
+            { label: 'Civic', value: 'Civic' },
+            { label: 'Accord', value: 'Accord' },
+            { label: 'CR-V', value: 'CR-V' },
+          ]);
+        } else {
+          setModelItems([
+            { label: 'Model 1', value: 'Model 1' },
+            { label: 'Model 2', value: 'Model 2' },
+            { label: 'Model 3', value: 'Model 3' },
+          ]);
+        }
+      } else {
+        if (brand === 'Honda') {
+          setModelItems([
+            { label: 'CBR', value: 'CBR' },
+            { label: 'Rebel', value: 'Rebel' },
+            { label: 'Gold Wing', value: 'Gold Wing' },
+          ]);
+        } else if (brand === 'Yamaha') {
+          setModelItems([
+            { label: 'R1', value: 'R1' },
+            { label: 'MT-07', value: 'MT-07' },
+            { label: 'YZF', value: 'YZF' },
+          ]);
+        } else {
+          setModelItems([
+            { label: 'Model A', value: 'Model A' },
+            { label: 'Model B', value: 'Model B' },
+            { label: 'Model C', value: 'Model C' },
+          ]);
+        }
+      }
+    }, 300);
+  };
+
   const handleBooking = async () => {
+    // Validate form
+    if (!vehicleType || !vehicleBrand || !vehicleModel || !vehicleYear || !vehicleMileage || !issue) {
+      Alert.alert(
+        "Incomplete Information",
+        "Please fill in all vehicle details and describe your issue.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     // Check network connection first
     const netInfo = await NetInfo.fetch();
     if (!netInfo.isConnected) {
@@ -160,6 +300,13 @@ export default function BookPageScreen({}) {
       shopId: shopId,
       datetime: selectedDate,
       issue: issue,
+      vehicle: {
+        type: vehicleType,
+        brand: vehicleBrand,
+        model: vehicleModel,
+        year: vehicleYear,
+        mileage: parseInt(vehicleMileage),
+      }
     };
 
     if (!userToken) {
@@ -211,9 +358,18 @@ export default function BookPageScreen({}) {
         );
       }
 
-      router.push({
-        pathname: "/(home)/home",
-      });
+      Alert.alert(
+        "Booking Successful!",
+        `Your appointment has been scheduled for ${selectedDate.toLocaleString()}`,
+        [
+          { 
+            text: "OK", 
+            onPress: () => router.push({
+              pathname: "/(home)/home",
+            }) 
+          }
+        ]
+      );
     } catch (error: any) {
       console.error("Booking creation error:", error);
 
@@ -237,110 +393,450 @@ export default function BookPageScreen({}) {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      {loading ? (
-        <Text>Loading...</Text>
-      ) : shop ? (
-        <>
-          <Text style={styles.title}>Book {shop.name}</Text>
-
-          <View style={styles.container}>
-            <Text style={styles.label}>Vehicle Issue</Text>
-            <TextInput
-              style={styles.inputBox}
-              value={issue}
-              onChangeText={setIssue}
-              placeholder="Enter your issue with your vehicle"
-            />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00897B" />
+            <Text style={styles.loadingText}>Loading shop details...</Text>
           </View>
-
-          <View style={styles.container}>
-            <Text style={styles.sectionTitle}>Date & Time:</Text>
-            <CustomDateTimePicker
-              mode="datetime"
-              onDateChange={handleDateChange}
-            />
-          </View>
-
-          <View style={styles.container}>
-            <TouchableOpacity 
-              onPress={handleBooking} 
-              style={[
-                styles.submitButton,
-                (!networkAvailable || connectionChecking) && styles.submitButtonDisabled
-              ]}
-              disabled={isSubmitting || !networkAvailable || connectionChecking}
-            >
-              {isSubmitting || connectionChecking ? (
-                <ActivityIndicator size="small" color="#fff" />
+        ) : shop ? (
+          <>
+            {/* Shop Header */}
+            <View style={styles.shopHeader}>
+              {shop.photos && shop.photos.length > 0 ? (
+                <Image
+                  source={{ uri: shop.photos[0] }}
+                  style={styles.shopImage}
+                  defaultSource={require('@/assets/images/mechanic-potrait.jpg')}
+                />
               ) : (
-                <Text style={styles.submitButtonText}>
-                  {!networkAvailable ? "No Connection" : "Book Shop"}
-                </Text>
+                <View style={styles.placeholderImage}>
+                  <Ionicons name="car" size={40} color="#00897B" />
+                </View>
               )}
+              <Text style={styles.title}>{shop.name}</Text>
+              <Text style={styles.location}>
+                <Ionicons name="location-outline" size={16} color="#757575" />
+                {" "}{shop.location}
+              </Text>
+            </View>
+
+            {/* Form Container */}
+            <View style={styles.formContainer}>
+              <Text style={styles.sectionTitle}>
+                <Ionicons name="calendar-outline" size={20} color="#00897B" /> 
+                {" "}Schedule Appointment
+              </Text>
+
+              {/* Vehicle Selection Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionSubtitle}>Vehicle Information</Text>
+                
+                {/* Vehicle Type */}
+                <View style={[styles.formGroup, { zIndex: 4000 }]}>
+                  <Text style={styles.label}>Vehicle Type</Text>
+                  <DropDownPicker
+                    open={vehicleOpen}
+                    value={vehicleType}
+                    items={vehicleItems}
+                    setOpen={setVehicleOpen}
+                    setValue={setVehicleType}
+                    setItems={setVehicleItems}
+                    placeholder="Select Vehicle Type"
+                    searchable={false} 
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    placeholderStyle={styles.dropdownPlaceholder}
+                    listMode="MODAL"
+                    modalProps={{
+                      animationType: "slide"
+                    }}
+                    modalTitle="Select Vehicle Type"
+                  />
+                </View>
+
+                {vehicleType ? (
+                  <>
+                    {/* BRAND */}
+                    <View style={[styles.formGroup, { zIndex: 3000 }]}>
+                      <Text style={styles.label}>Vehicle Brand</Text>
+                      <DropDownPicker
+                        open={brandOpen}
+                        setOpen={setBrandOpen}
+                        value={vehicleBrand}
+                        setValue={(callback) => {
+                          const value = callback(vehicleBrand);
+                          setVehicleBrand(value);
+                          fetchVehicleModels(value, vehicleType);
+                        }}
+                        items={
+                          (vehicleType === 'car' ? SUPPORTED_CAR_BRANDS : SUPPORTED_MOTORCYCLE_BRANDS)
+                            .map(b => ({ label: b, value: b }))
+                        }
+                        setItems={setBrandItems}
+                        multiple={false}
+                        placeholder="Select a brand"
+                        style={styles.dropdown}
+                        listMode="MODAL"
+                        modalProps={{
+                          animationType: "slide"
+                        }}
+                        modalTitle="Select Vehicle Brand"
+                      />
+                    </View>
+
+                    {/* MODEL */}
+                    <View style={[styles.formGroup, { zIndex: 2000 }]}>
+                      <Text style={styles.label}>Vehicle Model</Text>
+                      <DropDownPicker
+                        open={modelOpen}
+                        setOpen={setModelOpen}
+                        value={vehicleModel}
+                        setValue={setVehicleModel}
+                        items={modelItems}
+                        setItems={setModelItems}
+                        multiple={false}
+                        placeholder="Select a model"
+                        style={styles.dropdown}
+                        disabled={!vehicleBrand}
+                        disabledStyle={styles.disabledDropdown}
+                        listMode="MODAL"
+                        modalProps={{
+                          animationType: "slide"
+                        }}
+                        modalTitle="Select Vehicle Model"
+                      />
+                    </View>
+
+                    {/* YEAR */}
+                    <View style={[styles.formGroup, { zIndex: 1000 }]}>
+                      <Text style={styles.label}>Year</Text>
+                      <DropDownPicker
+                        open={yearOpen}
+                        setOpen={setYearOpen}
+                        value={vehicleYear}
+                        setValue={setVehicleYear}
+                        items={yearItems}
+                        setItems={setYearItems}
+                        multiple={false}
+                        placeholder="Select a year"
+                        style={styles.dropdown}
+                        disabled={!vehicleModel}
+                        disabledStyle={styles.disabledDropdown}
+                        listMode="MODAL"
+                        modalProps={{
+                          animationType: "slide"
+                        }}
+                        modalTitle="Select Vehicle Year"
+                      />
+                    </View>
+
+                    {/* MILEAGE */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Mileage (km)</Text>
+                      <View style={styles.inputWithIcon}>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 50000"
+                          value={vehicleMileage}
+                          onChangeText={setVehicleMileage}
+                          keyboardType="numeric"
+                        />
+                        <Ionicons name="speedometer-outline" size={20} color="#757575" style={styles.inputIcon} />
+                      </View>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+
+              {/* Issue Description */}
+              <View style={styles.section}>
+                <Text style={styles.sectionSubtitle}>Service Details</Text>
+                
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Issue Description</Text>
+                  <View style={styles.textAreaContainer}>
+                    <TextInput
+                      style={styles.textArea}
+                      value={issue}
+                      onChangeText={setIssue}
+                      placeholder="Describe the issue with your vehicle"
+                      multiline={true}
+                      numberOfLines={4}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Date & Time Selection */}
+              <View style={styles.section}>
+                <Text style={styles.sectionSubtitle}>Appointment Time</Text>
+                <CustomDateTimePicker
+                  mode="datetime"
+                  onDateChange={handleDateChange}
+                />
+              </View>
+
+              {/* Booking Button */}
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  onPress={handleBooking} 
+                  style={[
+                    styles.submitButton,
+                    (!networkAvailable || connectionChecking || isSubmitting) && styles.submitButtonDisabled
+                  ]}
+                  disabled={isSubmitting || !networkAvailable || connectionChecking}
+                >
+                  {isSubmitting || connectionChecking ? (
+                    <View style={styles.buttonContent}>
+                      <ActivityIndicator size="small" color="#fff" />
+                      <Text style={styles.submitButtonText}>
+                        {isSubmitting ? "Processing..." : "Connecting..."}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.buttonContent}>
+                      <Ionicons name={!networkAvailable ? "alert-circle" : "calendar-outline"} size={20} color="#fff" />
+                      <Text style={styles.submitButtonText}>
+                        {!networkAvailable ? "No Connection" : "Book Appointment"}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#f44336" />
+            <Text style={styles.errorText}>Shop information not available</Text>
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={getShop}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        </>
-      ) : (
-        <Text>No shop data available</Text>
-      )}
-    </View>
+        )}
+        
+        {/* Bottom padding for scroll */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    minHeight: 200,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: "#757575",
+  },
+  shopHeader: {
+    backgroundColor: "#fff",
+    padding: 20,
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  shopImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
+  },
+  placeholderImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
+    color: "#212121",
     textAlign: "center",
-    marginBottom: 20,
-    marginTop: 30,
+    marginBottom: 8,
   },
-  inputBox: {
-    borderWidth: 1,
-    borderColor: "gray",
-    padding: 12,
+  location: {
+    fontSize: 14,
+    color: "#757575",
+    textAlign: "center",
+  },
+  formContainer: {
+    padding: 16,
+  },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#212121",
+    marginBottom: 16,
+  },
+  sectionSubtitle: {
     fontSize: 16,
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    height: 50,
-    paddingHorizontal: 20,
+    fontWeight: "600",
+    color: "#424242",
+    marginBottom: 12,
+  },
+  formGroup: {
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: "#00897B",
-    marginBottom: 5,
-    textTransform: "uppercase",
-    marginTop: 20,
-  },
-  container: {
-    padding: 20,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 16,
     marginBottom: 8,
   },
-  submitButtonText: {
-    color: '#fff',
+  dropdown: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    minHeight: 50,
+    backgroundColor: "#fff",
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  dropdownPlaceholder: {
+    color: "#9e9e9e",
+  },
+  disabledDropdown: {
+    opacity: 0.5,
+    backgroundColor: "#f5f5f5",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
-    fontWeight: 'bold',
+    backgroundColor: "#FFF",
+    height: 50,
+    paddingHorizontal: 16,
+    color: "#212121",
+    flex: 1,
+  },
+  inputWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  inputIcon: {
+    position: "absolute",
+    right: 16,
+  },
+  textAreaContainer: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  textArea: {
+    fontSize: 16,
+    padding: 12,
+    textAlignVertical: "top",
+    minHeight: 100,
+    color: "#212121",
+  },
+  buttonContainer: {
+    marginTop: 8,
+    marginBottom: 8,
   },
   submitButton: {
-    borderRadius: 25,
-    backgroundColor: '#00897B',  
-    alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
+    borderRadius: 8,
+    backgroundColor: "#00897B",  
+    minHeight: 54,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonDisabled: {
-    backgroundColor: '#B0BEC5',
+    backgroundColor: "#B0BEC5",
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  networkStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+    backgroundColor: "#ffebee",
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  networkStatusText: {
+    color: "#f44336",
+    marginLeft: 4,
+    fontSize: 14,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    minHeight: 300,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#757575",
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: "#00897B",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontWeight: "600",
   },
 });

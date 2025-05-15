@@ -21,7 +21,10 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["VIBRATE", "NOTIFICATIONS"],
+      "permissions": [
+        "VIBRATE",
+        "NOTIFICATIONS"
+      ],
       "package": "com.anonymous.bgearv2"
     },
     "web": {
@@ -35,6 +38,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ee6d0104-4e5c-4a2a-921d-c8529e85520c"
+      }
     }
   }
 }
