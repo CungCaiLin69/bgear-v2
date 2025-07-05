@@ -66,6 +66,25 @@ io.on('connection', (socket) => {
     setPendingOrders(prev => [...prev, order]);
   });
 
+  socket.on('newBookingRequest', (newBooking) => {
+    console.log("Received new booking via socket:", newBooking);
+
+    const booking = {
+      bookingId: newBooking.bookingId,
+      shopId: newBooking.shopId,
+      userId: newBooking.userId,
+      vehicleType: newBooking.vehicleType,
+      vehicleBrand: newBooking.vehicleBrand,
+      vehicleModel: newBooking.vehicleModel,
+      vehicleYear: newBooking.vehicleYear,
+      vehicleMileage: newBooking.vehicleMileage,
+      issue: newBooking.issue,
+      datetime: newBooking.datetime
+    }
+
+    setPendingBooking(prev => [...prev, booking]);
+  })
+
   // Handling order acceptance via socket
   socket.on('acceptOrder', async ({ orderId }) => {
     console.log(`Socket event: Repairman ${socket.user.id} accepting order ${orderId}`);
@@ -928,7 +947,7 @@ app.post("/booking/complete/:bookingId", verifyToken, async (req, res) => {
 });
 
 // Get all bookings for a shop
-app.get("/api/shop/bookings", verifyToken, async (req, res) => {
+app.get("/api/shop/bookings-by-owner", verifyToken, async (req, res) => {
   try {
     // Find the shop associated with the user
     const shop = await prisma.shop.findFirst({
@@ -993,7 +1012,7 @@ app.get("/api/user/bookings", verifyToken, async (req, res) => {
       }
     });
 
-    res.json({ bookings });
+    res.json({ booking: bookings });
   } catch (error) {
     console.error("Error fetching user bookings:", error);
     res.status(500).json({ error: "Failed to fetch user bookings" });
@@ -1101,7 +1120,6 @@ app.post('/book/create', verifyToken, async (req, res) => {
     datetime,
     vehicleType,
     issue,
-    note,
     vehicleBrand,
     vehicleModel,
     vehicleYear,
@@ -1118,28 +1136,31 @@ app.post('/book/create', verifyToken, async (req, res) => {
         userId: req.user.id,
         shopId: parseInt(shopId),
         datetime: new Date(datetime),
-        vehicleType,
         issue,
-        note: note || null,
         vehicleBrand: vehicleBrand || null,
         vehicleModel: vehicleModel || null,
         vehicleYear: vehicleYear ? parseInt(vehicleYear) : null,
         vehicleMileage: vehicleMileage ? parseInt(vehicleMileage) : null,
+        vehicleType,
       },
     });
 
-    io.emit('newBookingRequest', {
+    const bookingData = {
       bookingId: booking.id,
       shopId: booking.shopId,
-      userId: booking.userId,
-      vehicleType,
-      vehicleBrand,
-      vehicleModel,
-      vehicleYear,
-      vehicleMileage,
-      issue,
-      datetime,
-    });
+      userId: req.user.id,
+      vehicleType: booking.vehicleType,
+      vehicleBrand: booking.vehicleBrand,
+      vehicleModel: booking.vehicleModel,
+      vehicleYear: booking.vehicleYear,
+      vehicleMileage: booking.vehicleMileage,
+      issue: booking.issue,
+      datetime: booking.datetime
+    }
+
+    io.emit('newBookingRequest', bookingData);
+
+    console.log("Emitted newBookingRequest events with data: ", bookingData)
 
     return res.status(201).json({ success: true, booking });
   } catch (error) {
@@ -1280,11 +1301,11 @@ app.post('/order/reject/:orderId', verifyToken, async (req, res) => {
 });
 
 app.post('/booking/reject/:bookingId', verifyToken, async (req, res) => {
-  const bookingId = parseInt(req.params.bookingId);
+  // const bookingId = parseInt(req.params.bookingId);
 
   try {
     const booking = await prisma.booking.update({
-      where: { id: bookingId },
+      where: { id: req.params.bookingId },
       data: { status: 'rejected' }
     });
 
@@ -1453,8 +1474,8 @@ app.get('/api/get-booking-by-user', verifyToken, async (req, res) => {
   try {
     const booking = await prisma.booking.findFirst({
       where: {
-        userId: req.user.id,
-        NOT: { status: { in: ['canceled', 'finished', 'rejected'] } },
+        userId: req.user.id
+        // NOT: { status: { in: ['canceled', 'finished', 'rejected'] } },
       },
       orderBy: { createdAt: 'desc' },
     });

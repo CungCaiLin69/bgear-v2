@@ -8,9 +8,20 @@ import Icon from "react-native-vector-icons/Ionicons";
 
 type PendingBooking = {
     bookingId: number,
-    userId: number,
-    datetime: Date,
-    issue: string
+    shopId: number,
+    userId: string,
+    datetime: string,
+    issue: string,
+    vehicleBrand: string,
+    vehicleModel: string,
+    vehicleYear: number,
+    vehicleType: string,
+    user: {
+      id: string,
+      name: string,
+      phoneNumber: number,
+      profilePicture: string
+    }
 }
 
 export type Shop = {
@@ -24,7 +35,7 @@ export type Shop = {
   };
 
 export default function ShopDashboardScreen( { navigation }: any) {
-    const { userToken } = useAuth();
+    const { user, userToken } = useAuth();
     const { socket, isConnected } = useSocket();
     const [pendingBooking, setPendingBooking] = useState<PendingBooking[]>([])
     const [acceptingBookingId, setAcceptingBookingId] = useState<number | null>(null);
@@ -35,67 +46,94 @@ export default function ShopDashboardScreen( { navigation }: any) {
     const [ongoingBookings, setOngoingBookings] = useState<any[]>([]);
     const [completedBookings, setCompletedBookings] = useState<any[]>([]);
 
+    // useEffect(() => {
+    //     if(!socket){
+    //         console.log("No socket available");
+    //         return;
+    //     }
+
+    //     //Listen to new incoming bookings
+    //     socket.on('newBookingRequest', (newBooking) => {
+    //         console.log("new incoming booking:", newBooking);
+
+    //         const booking = Array.isArray(newBooking) ? newBooking : [newBooking];
+    //         const enriched = booking.map(booking => ({
+    //             ...booking,
+    //         }));
+
+    //         setPendingBooking(prev => [
+    //             ...prev,
+    //             ...enriched
+    //         ]);
+    //     });
+
+    //     console.log("this is pending booking: ", pendingBooking)
+
+    //     //listen for rejected bookings
+    //     socket.on("bookingRejected", ({bookingId}) => {
+    //         setPendingBooking(prev => prev.filter(booking => booking.bookingId !== bookingId));
+    //     });
+
+    //     //listen for accepted bookings
+    //     socket.on("bookingAccepted", ({bookingId}) => {
+    //         setPendingBooking(prev => prev.filter(booking => booking.bookingId !== bookingId));
+    //     })
+
+    //     return() => {
+    //         socket.off('newBookingRequest');
+    //         socket.off("bookingRejected");
+    //         socket.off("bookingAccepted");
+    //     }
+    // }, [socket, isConnected])
+
     useEffect(() => {
-        if(!socket){
-            console.log("No socket available");
-            return;
+        if(user?.has_shop){
+          console.log("user has shop");
+          fetchBookingsByShopOwner();
+          const refreshInterval = setInterval(fetchBookingsByShopOwner, 30000);
+          return () => clearInterval(refreshInterval);
         }
-
-        //Listen to new incoming bookings
-        socket.on('newBookingRequest', (newBooking) => {
-            console.log("new incoming booking:", newBooking);
-
-            const booking = Array.isArray(newBooking) ? newBooking : [newBooking];
-            const enriched = booking.map(booking => ({
-                ...booking,
-            }));
-
-            setPendingBooking(prev => [
-                ...prev,
-                ...enriched
-            ]);
-        });
-
-        //listen for rejected bookings
-        socket.on("bookingRejected", ({bookingId}) => {
-            setPendingBooking(prev => prev.filter(booking => booking.bookingId !== bookingId));
-        });
-
-        //listen for accepted bookings
-        socket.on("bookingAccepted", ({bookingId}) => {
-            setPendingBooking(prev => prev.filter(booking => booking.bookingId !== bookingId));
-        })
-
-        return() => {
-            socket.off('newBookingRequest');
-            socket.off("bookingRejected");
-            socket.off("bookingAccepted");
+        else{
+          console.log("user doesnt have shop");
+          fetchBookingByUser();
+          const refreshInterval = setInterval(fetchBookingByUser, 30000);
+          return () => clearInterval(refreshInterval);
         }
-    }, [socket, isConnected])
-
-    useEffect(() => {
-        fetchBookings();
-        const refreshInterval = setInterval(fetchBookings, 30000);
-        return () => clearInterval(refreshInterval);
     }, []);
 
+    const formatDate = (dateString: string | number | Date) => {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    };
 
-    const fetchBookings = async () => {
+    const fetchBookingsByShopOwner = async () => {
         try{
-            const response = await fetch('http://10.0.2.2:3000/api/shop/bookings', {
+            const response = await fetch('http://10.0.2.2:3000/api/shop/bookings-by-owner', {
                 headers: {
                     Authorization: `Bearer ${userToken}`,
                 },
             })
             const data = await response.json();
-            console.log("this is the bookings: ", data);
+            console.log("this is the owner bookings: ", data);
+
+            const pending = data.booking.filter((booking:any) => 
+            booking.status ==="pending");
 
             const ongoing = data.booking.filter((booking:any) => 
             booking.status ==="accepted");
 
             const completed = data.booking.filter((booking: any) => 
             ['completed', 'finished', 'rejected', 'canceled'].includes(booking.status));
-
+            
+            setPendingBooking(pending);
             setOngoingBookings(ongoing);
             setCompletedBookings(completed);
         }
@@ -107,6 +145,39 @@ export default function ShopDashboardScreen( { navigation }: any) {
         }
     }
 
+    const fetchBookingByUser = async () => {
+      try{
+        const response = await fetch('http://10.0.2.2:3000/api/user/bookings', {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+          },
+        })
+        const data = await response.json();
+        console.log("this is the user bookings: ", data);
+
+        const pending = data.booking.filter((booking:any) => 
+        booking.status ==="pending");
+
+        const ongoing = data.booking.filter((booking:any) => 
+        booking.status ==="accepted");
+
+        const completed = data.booking.filter((booking: any) => 
+        ['completed', 'finished', 'rejected', 'canceled'].includes(booking.status));
+
+        setPendingBooking(pending);
+        setOngoingBookings(ongoing);
+        setCompletedBookings(completed);
+
+        console.log("this is users pending bookings: ", pendingBooking)
+      }
+      catch(error){
+        console.error("Failed to fetch shop bookings for user:", error)
+      }finally{
+        setisLoading(false);
+        setIsRefreshing(false);
+      }
+    }
+
     const acceptBooking = async (bookingId: number) => {
         if(acceptingBookingId !== null){
             return;
@@ -114,7 +185,7 @@ export default function ShopDashboardScreen( { navigation }: any) {
         setAcceptingBookingId(bookingId);
 
         try{
-            const response = await fetch(`http://10.0.2.2:3000/order/accept/${bookingId}`, {
+            const response = await fetch(`http://10.0.2.2:3000/booking/accept/${bookingId}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${userToken}`,
@@ -125,14 +196,14 @@ export default function ShopDashboardScreen( { navigation }: any) {
             const data = await response.json();
 
             if(!response.ok){
-                throw new Error(data.error || "Failed to accept order");
+                throw new Error(data.error || "Failed to accept booking");
             }
 
             socket?.emit('acceptBooking', {bookingId});
 
             setPendingBooking(prev => prev.filter(booking => booking.bookingId !== bookingId));
 
-            await fetchBookings();
+            await fetchBookingsByShopOwner();
 
             router.push({pathname: "/(home)/home"})
         }catch(error){
@@ -170,14 +241,16 @@ export default function ShopDashboardScreen( { navigation }: any) {
 
     const renderPendingItem = ({ item }: {item: PendingBooking}) => (
         <View style={styles.bookingCard}>
-            <Text style={styles.bookingTitle}>New Bookings</Text>
+            {user?.has_shop && (
+              <Text style={styles.bookingTitle}>{item.user.name}</Text>
+            )}
             <Text>Issue: {item.issue}</Text>
-            <Text>Booking Date: {(item.datetime).toString()}</Text>
-
+            <Text>Booking Date: {formatDate(item.datetime)}</Text>
+            <Text>Vehicle: {item.vehicleYear} {item.vehicleBrand} {item.vehicleModel}</Text>
             <View style={styles.buttonRow}>
                 <TouchableOpacity 
                 style={[styles.actionButton, styles.rejectButton]} 
-                onPress={() => rejectBooking(item.bookingId)}
+                onPress={() => rejectBooking(item.id)}
                 >
                 <Icon name="close" size={20} color="#fff" />
                 <Text style={styles.buttonText}>Decline</Text>
@@ -189,7 +262,7 @@ export default function ShopDashboardScreen( { navigation }: any) {
                     styles.acceptButton,
                     acceptingBookingId !== null && styles.disabledButton
                     ]} 
-                    onPress={() => acceptBooking(item.bookingId)}
+                    onPress={() => acceptBooking(item.id)}
                     disabled={acceptingBookingId !== null}
                 >
                     <Icon name="checkmark" size={20} color="#fff" />
@@ -220,7 +293,7 @@ export default function ShopDashboardScreen( { navigation }: any) {
                     <Text style={styles.historyDetailText}>{item.issue}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                    <Text style={styles.historyDetailText}>{item.datetime}</Text>
+                    <Text style={styles.historyDetailText}>{formatDate(item.datetime)}</Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -254,16 +327,19 @@ export default function ShopDashboardScreen( { navigation }: any) {
             <Text style={styles.header}>Dashboard</Text>
             
             <View style={styles.headerButtons}>
-                <TouchableOpacity 
-                style={styles.editButton}
-                onPress={() => router.push({ pathname: '/edit-shop' })} 
-                >
-                <Icon name="settings-outline" size={22} color="#333" />
-                </TouchableOpacity>
-                
+
+                {user?.has_shop ? (
+                  <TouchableOpacity 
+                  style={styles.editButton}
+                  onPress={() => router.push({ pathname: '/edit-shop' })} 
+                  >
+                  <Icon name="settings-outline" size={16} color="#333" />
+                  </TouchableOpacity>
+                ) : (<></>)}
+
                 <TouchableOpacity 
                 style={styles.refreshButton}
-                onPress={fetchBookings}
+                onPress={fetchBookingsByShopOwner}
                 >
                 <Icon name={isRefreshing ? 'sync-circle' : 'refresh'} size={22} color="#333" />
                 </TouchableOpacity>
@@ -280,7 +356,7 @@ export default function ShopDashboardScreen( { navigation }: any) {
         )}
 
         <View style={styles.content}>
-            {pendingBooking.length > 0 && (
+            {pendingBooking.length > 0 && user?.has_shop &&(
                 <>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Incoming Booking</Text>
@@ -291,7 +367,7 @@ export default function ShopDashboardScreen( { navigation }: any) {
                     
                     <FlatList
                         data={pendingBooking}
-                        keyExtractor={(item) => `pending-order-${item.bookingId}-${Date.now()}`}
+                        keyExtractor={(item) => `pending-booking-${item.id}-${Date.now()}`}
                         renderItem={renderPendingItem}
                         horizontal
                         showsHorizontalScrollIndicator={false}

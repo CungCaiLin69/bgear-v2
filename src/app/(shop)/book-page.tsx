@@ -300,13 +300,18 @@ export default function BookPageScreen() {
       shopId: shopId,
       datetime: selectedDate,
       issue: issue,
-      vehicle: {
-        type: vehicleType,
-        brand: vehicleBrand,
-        model: vehicleModel,
-        year: vehicleYear,
-        mileage: parseInt(vehicleMileage),
-      }
+      // vehicle: {
+      //   type: vehicleType,
+      //   brand: vehicleBrand,
+      //   model: vehicleModel,
+      //   year: vehicleYear,
+      //   mileage: parseInt(vehicleMileage),
+      // }
+      vehicleType: vehicleType,
+      vehicleBrand: vehicleBrand,
+      vehicleModel: vehicleModel,
+      vehicleYear: vehicleYear, 
+      vehicleMileage: parseInt(vehicleMileage)
     };
 
     if (!userToken) {
@@ -335,6 +340,7 @@ export default function BookPageScreen() {
       clearTimeout(timeoutId);
 
       const data = await response.json();
+      console.log("this is data: ", data);
 
       if (!response.ok) {
         console.error("Booking creation failed:", data.error);

@@ -96,7 +96,7 @@ export default function BookingTrackingScreen() {
       const data = await response.json();
       console.log("Booking info:", data);
       
-      setBookingInfo(data.booking);
+      setBookingInfo(data);
     } catch (error) {
       console.error("Fetch booking info error", error);
       Alert.alert("Error", "Failed to load booking information");
