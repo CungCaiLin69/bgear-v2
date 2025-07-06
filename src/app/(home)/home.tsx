@@ -39,7 +39,7 @@ interface Order {
 
 export default function HomePage() {
   const { userToken, user } = useAuth(); 
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const router = useRouter();
   const [userHaveBooking, setUserHaveBooking] = useState(false);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
@@ -77,7 +77,7 @@ export default function HomePage() {
       })
       const data = await response.json();
       setUserHaveBooking(data);
-      console.log("booking by user: ", data);
+      // console.log("booking by user: ", data);
     }catch(error){
       console.log("Failed to fetch booking by user", error);
     }

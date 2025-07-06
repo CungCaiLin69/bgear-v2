@@ -54,6 +54,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [pendingBooking, setPendingBooking] = useState<any[]>([]);
   const [allUnreadMessages, setAllUnreadMessages] = useState<Record<string, any[]>>({});
   
   const reconnectAttempts = useRef(0);
@@ -271,6 +272,18 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Store in context for dashboard
       setPendingOrders(prev => [...prev, ...enriched]);
+    });
+
+    newSocket.on('newBookingRequest', (newBooking) => {
+      const booking = Array.isArray(newBooking) ? newBooking : [newBooking];
+      const enriched = booking.map(booking => ({
+          ...booking,
+      }));
+
+      setPendingBooking(prev => [
+          ...prev,
+          ...enriched
+      ]);      
     });
 
     // Handle order accepted
