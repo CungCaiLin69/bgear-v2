@@ -183,7 +183,7 @@ export default function BookingTrackingScreen() {
       }
 
       Alert.alert("Success", "Booking has been marked as completed");
-      router.replace("../(dashboard)/shop-dashboard");
+      router.replace("/(home)/home");
     } catch (error: any) {
       console.error("Complete booking error:", error);
       Alert.alert("Error", error.message || "Failed to complete booking");

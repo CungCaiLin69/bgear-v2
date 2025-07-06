@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSocket } from '../../utils/SocketProvider';
 import { useAuth } from '../../utils/AuthProvider';
-import Icon from 'react-native-vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -229,7 +229,7 @@ export default function RepairmanDashboardScreen() {
       <View style={styles.orderCard}>
         <View style={styles.orderHeader}>
           <View style={styles.vehicleIconContainer}>
-            <Icon name={getVehicleIcon(item.vehicleType)} size={24} color="#fff" />
+            <Ionicons name={getVehicleIcon(item.vehicleType)} size={24} color="#fff" />
           </View>
           <View style={styles.orderHeaderText}>
             <Text style={styles.orderTitle}>New Request</Text>
@@ -239,12 +239,12 @@ export default function RepairmanDashboardScreen() {
         
         <View style={styles.orderDetails}>
           <View style={styles.detailRow}>
-            <Icon name="location" size={16} color="#555" />
+            <Ionicons name="location" size={16} color="#555" />
             <Text style={styles.detailText}>{item.address}</Text>
           </View>
           
           <View style={styles.detailRow}>
-            <Icon name="alert-circle" size={16} color="#555" />
+            <Ionicons name="alert-circle" size={16} color="#555" />
             <Text style={styles.detailText}>{item.complaint}</Text>
           </View>
         </View>
@@ -271,7 +271,7 @@ export default function RepairmanDashboardScreen() {
             style={[styles.actionButton, styles.rejectButton]} 
             onPress={() => rejectOrder(item.orderId)}
           >
-            <Icon name="close" size={20} color="#fff" />
+            <Ionicons name="close" size={20} color="#fff" />
             <Text style={styles.buttonText}>Decline</Text>
           </TouchableOpacity>
           
@@ -284,7 +284,7 @@ export default function RepairmanDashboardScreen() {
             onPress={() => acceptOrder(item.orderId)}
             disabled={acceptingOrderId !== null}
           >
-            <Icon name="checkmark" size={20} color="#fff" />
+            <Ionicons name="checkmark" size={20} color="#fff" />
             <Text style={styles.buttonText}>Accept</Text>
           </TouchableOpacity>
         </View>
@@ -306,7 +306,7 @@ export default function RepairmanDashboardScreen() {
     >
       <View style={styles.historyHeader}>
         <View style={styles.vehicleIconSmall}>
-          <Icon name={getVehicleIcon(item.vehicleType)} size={16} color="#fff" />
+          <Ionicons name={getVehicleIcon(item.vehicleType)} size={16} color="#fff" />
         </View>
         <Text style={styles.historyVehicle}>{item.vehicleType}</Text>
         <View 
@@ -323,14 +323,14 @@ export default function RepairmanDashboardScreen() {
       
       <View style={styles.historyDetails}>
         <View style={styles.detailRow}>
-          <Icon name="location-outline" size={14} color="#777" />
+          <Ionicons name="location-outline" size={14} color="#777" />
           <Text style={styles.historyDetailText} numberOfLines={1}>
             {item.address || 'Unknown address'}
           </Text>
         </View>
         
         <View style={styles.detailRow}>
-          <Icon name="alert-circle-outline" size={14} color="#777" />
+          <Ionicons name="alert-circle-outline" size={14} color="#777" />
           <Text style={styles.historyDetailText} numberOfLines={1}>
             {item.complaint}
           </Text>
@@ -339,7 +339,7 @@ export default function RepairmanDashboardScreen() {
       
       {activeTab === 'ongoing' && (
         <View style={styles.trackButtonContainer}>
-          <Icon name="navigate" size={16} color="#3498db" />
+          <Ionicons name="navigate" size={16} color="#3498db" />
           <Text style={styles.trackButtonText}>Track Order</Text>
         </View>
       )}
@@ -368,7 +368,7 @@ export default function RepairmanDashboardScreen() {
           onPress={() => router.replace('/(home)/home')}
           style={styles.backButton}
         >
-          <Icon name="arrow-back" size={22} color="#333" />
+          <Ionicons name="arrow-back" size={22} color="#333" />
         </TouchableOpacity>
 
         <Text style={styles.header}>Dashboard</Text>
@@ -378,21 +378,21 @@ export default function RepairmanDashboardScreen() {
             style={styles.editButton}
             onPress={() => router.push({ pathname: '/edit-repairman' })} 
           >
-            <Icon name="settings-outline" size={22} color="#333" />
+            <Ionicons name="settings-outline" size={22} color="#333" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.refreshButton}
             onPress={fetchOrders}
           >
-            <Icon name={isRefreshing ? 'sync-circle' : 'refresh'} size={22} color="#333" />
+            <Ionicons name={isRefreshing ? 'sync-circle' : 'refresh'} size={22} color="#333" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
       
       {!isConnected && (
         <View style={styles.connectionWarning}>
-          <Icon name="warning-outline" size={16} color="#FFA000" />
+          <Ionicons name="warning-outline" size={16} color="#FFA000" />
           <Text style={styles.connectionWarningText}>
             Not connected to service. Orders may not appear.
           </Text>
@@ -452,7 +452,7 @@ export default function RepairmanDashboardScreen() {
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon 
+              <Ionicons 
                 name={activeTab === 'ongoing' ? 'car-outline' : 'time-outline'} 
                 size={48} 
                 color="#ccc" 
