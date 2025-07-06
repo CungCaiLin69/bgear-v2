@@ -34,12 +34,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
+      "supabaseUrl": "https://cslravgrpdmpenpvkuff.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzbHJhdmdycGRtcGVucHZrdWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3NzMyMDUsImV4cCI6MjA2NzM0OTIwNX0.1Pp7_V-Oqe9opsw2HQ-0LjFWoOdC6ncZR_xvMm_H9Q4",
       "router": {},
       "eas": {
         "projectId": "ee6d0104-4e5c-4a2a-921d-c8529e85520c"
