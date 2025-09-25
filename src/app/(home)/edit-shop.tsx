@@ -161,7 +161,7 @@ const EditShopScreen = () => {
                   longitude: parseFloat(coords.lon)
                 });
               }}
-              apiKey="pk.95ff82ac779b33e03418197e365fd8b6"
+               apiKey={process.env.AUTOCOMPLETE_API_KEY ?? ""}
             />
   
             <Text style={styles.label}>Shop Services</Text>

@@ -21,6 +21,7 @@ import AddressAutocomplete from '@/src/components/AddressAutocomplete';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import NetInfo from '@react-native-community/netinfo';
+import dotenv from 'dotenv';
 
 type LocationType = {
   latitude: number;
@@ -85,6 +86,8 @@ export default function OrderRepairmanScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  
+  dotenv.config();
 
   // Vehicle types
   const [vehicleItems] = useState([
@@ -252,7 +255,10 @@ export default function OrderRepairmanScreen() {
   };  
 
   const fetchVehicleModels = async (brand: string, type: any) => {
-  const apiKey = 'ail9yVqrAHSTnxj6ttYJyA==eoJprJj1HYemS56f';
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+  throw new Error("Missing API_KEY in environment variables");
+}
   const endpoint =
     type === 'car'
       ? `https://api.api-ninjas.com/v1/car?make=${brand}`
@@ -588,7 +594,7 @@ useEffect(() => {
                   longitude: parseFloat(coords.lon),
                 });
               }}
-              apiKey="pk.95ff82ac779b33e03418197e365fd8b6"
+              apiKey={process.env.AUTOCOMPLETE_API_KEY ?? ""}
               
             />
           </View>

@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import MultiSelect from 'react-native-multiple-select';
 import AddressAutocomplete from '@/src/components/AddressAutocomplete';
+import dotenv from "dotenv"
 
 const SERVICE_OPTIONS = [
   { id: 'car', name: 'Car Repair' },
@@ -15,6 +16,7 @@ const SERVICE_OPTIONS = [
 ];
 
 const CreateShopScreen = () => {
+  dotenv.config();
   const navigation = useNavigation();
   const { user, createShop } = useAuth();
 
@@ -143,7 +145,7 @@ const CreateShopScreen = () => {
                     longitude: parseFloat(coords.lon)
                   });
                 }}
-                apiKey="pk.95ff82ac779b33e03418197e365fd8b6"
+                apiKey={process.env.AUTOCOMPLETE_API_KEY ?? ""}
               />
     
               <Text style={styles.label}>Shop Services</Text>
